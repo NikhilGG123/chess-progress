@@ -1,114 +1,158 @@
 # Chess Progress
 
-A progress tracker for a chess academy, replacing the shared spreadsheet three
-coaches were running their classes from.
+**Student progress tracking for a chess academy** — replacing the shared
+spreadsheet three coaches ran their classes from.
+
+[**Try the live demo →**](https://chess-dashboard-mu.vercel.app) · credentials
+are on the sign-in page · every student in it is invented
+
+<!-- SCREENSHOT 1: docs/screenshots/grid.png -->
 
 A coach opens the evening's class, checks in who turned up, ticks what the
 lesson covered, and marks each student against the topics in their level. The
 record is permanent and belongs to the student, not to a tab in a workbook.
 
-**[Live demo →](https://chess-dashboard-mu.vercel.app)** — every student in it
-is invented. Sign in with `brad@example.com` / `ChessCoach2026!`, or
-`admin@example.com` for the account that is allowed to delete things.
-
-The academy's own instance runs the same code against their real records: 645
-students, 12,398 marks and 523 classes migrated out of the system they had
-before.
+The academy's own instance runs this same code against their real records:
+**645 students, 12,398 marks, 2,196 attendance records and 523 classes**,
+migrated out of the system they had before.
 
 ---
 
-## What it does
+## The problem
 
-**Marks.** One per student per topic, five of them, taken from the notation the
-coaches already used on paper:
+Four levels of chess, sixteen to twenty-two topics each, fourteen classes a
+week across four evenings. The record of who had learned what lived in an Excel
+workbook with a tab per level — so a child who moved up got a **new row on a
+new tab**, and their old one stayed behind. After years of this, one child
+could be three separate records, filed under "Rohan", "Rohan M" and "Rohan
+Mistry", because for a long time only first names were written down.
 
-| Mark | Means |
-| :---: | --- |
-| – | not covered with this student yet |
-| `I` | seen once |
-| `R` | seen several times |
-| `T` | ready to be tested |
-| `X` | tested and complete |
-
-`X` means *complete*. Read as a cross it means the opposite, and this app
-shipped once with exactly that mistake — enough to invert every student's
-record on import. A test pins it now.
-
-**A class, start to finish.** Regulars are starred, so check-in is one button
-and the search box is there for drop-ins. Tick the topics the lesson covered,
-press *Everyone here saw these*, and every attendee moves one step — blank → I
-→ R, and no further. Whether a child is ready to be tested is a coach's
-judgement and the app never guesses it.
-
-**The grid** is the spreadsheet they knew, with diagonal headings so twenty-two
-topics fit on a screen, and a suggested next lesson per student: the first
-topic in the level they have not finished. A deliberately plain rule — a coach
-glances at it mid-lesson, and one they cannot predict is one they stop
-trusting.
-
-**Everything else** the spreadsheet could not do: a permanent history of every
-mark with the class it changed in, a repeating timetable that keeps its own
-calendar filled, per-student notes, several programmes (chess, coding, whatever
-comes next), nightly backups, and a screen for folding the several pages one
-child accumulated over years into a single record.
+Nothing in that workbook could answer *what should I teach this child next?*
+without a coach reading across three tabs mid-lesson.
 
 ---
 
-## Decisions worth reading
+## Running a class
 
-**Progress hangs off the topic, not the level.** One row per student per topic;
-a row's level is reached through `topics.level_id`. Promoting a student
-therefore touches no progress row, and their old level survives as history for
-free. Storing the level on the progress row would have made promotion mean
-either deleting history or duplicating it.
+<!-- SCREENSHOT 2: docs/screenshots/class.png -->
+
+1. **Open the class.** It's already on the calendar — the timetable repeats
+   itself and generates eight weeks ahead.
+2. **Check in.** Regulars are starred, so that's one button; the search box is
+   there for drop-ins, who are common enough to matter.
+3. **Tick what the lesson covered.**
+4. **Press *Everyone here saw these*.** Every attendee moves one step on those
+   topics — blank → `I` → `R`, and **no further**.
+5. **Mark individuals by hand** where judgement applies: `T` when a student is
+   ready to be tested, `X` when they have passed.
+
+Step 4 stopping at `R` is the important one. Attending a lesson is evidence a
+student *saw* something. It is not evidence they understood it, and no bulk
+action in this app will ever claim otherwise.
+
+### The five marks
+
+| Mark | Stored as | Means |
+| :---: | --- | --- |
+| – | `not_seen` | not covered with this student yet |
+| `I` | `seen_once` | seen once |
+| `R` | `seen_multiple` | seen several times |
+| `T` | `needs_testing` | ready to be tested |
+| `X` | `complete` | tested and finished |
+
+**`X` means complete.** Read as a cross it means the exact opposite, and this
+app shipped once with that mistake — enough to invert every student's record on
+import. It was caught by cross-checking three independent sources: the coaches,
+the workbook's own grid formula, and the 3,702 rows their old database labelled
+*Completed*. A test pins it now.
+
+---
+
+## The permanent record
+
+<!-- SCREENSHOT 3: docs/screenshots/student.png -->
+
+Every mark that changes is written to a history table with the class it changed
+in, by a database trigger — so the grid, the bulk advance, an import and
+somebody's ad-hoc SQL are all covered by the same guarantee.
+
+Promoting a student touches no progress row at all, so their old level survives
+as history for free. That falls out of the schema: progress hangs off the
+**topic**, and a topic knows its own level.
+
+---
+
+## One child, several pages
+
+<!-- SCREENSHOT 4: docs/screenshots/merge.png -->
+
+The obvious move is to merge same-name records automatically. Tested against
+attendance history, that turns out to be unsafe:
+
+- **126** same-name groups sat at different levels
+- **10** attended in separate periods — consistent with one child moving up
+- **7** attended *in the same week* on two different pages
+- **109** had too little attendance to tell either way
+
+And the 7 prove nothing, because **27 students legitimately attend two
+classes**. There is no reliable second key, and fusing two children's records
+is far worse than leaving them apart.
+
+So nothing is merged automatically. The app ships a review screen instead: one
+name group at a time, with levels, attendance dates and progress counts on
+screen, and a coach decides. Merging moves every mark, class, note and
+attendance record to the surviving student before anything is deleted; where
+the same topic exists on both, the mark further along wins.
+
+---
+
+## Engineering decisions worth reading
 
 **Row-level security is only half of it.** A policy decides *which rows*; a
 `GRANT` decides whether you may touch the table at all, and Postgres checks
-that first. Tables created over a direct connection inherit neither, so the
-app once answered a signed-in coach with `permission denied for table
-students`. Every table now carries an explicit grant block.
+that first. Tables created over a direct connection inherit neither — which is
+how a signed-in coach once got `permission denied for table students`. Every
+table now carries an explicit grant block.
 
 **The API truncates at 1,000 rows in silence.** No error, no flag, just a short
 array. A class of 46 students on a 22-topic level is 1,012 progress rows, so
 the tail would have rendered blank and coaches would have watched their marks
-apparently vanish. Everything that scales with the roster pages explicitly.
+apparently vanish. Everything that scales with the roster now pages explicitly.
 
 **Roles are drawn around blast radius, not seniority.** Coaches can delete a
 class, because they do it routinely and making them fetch an admin password
 guarantees that password ends up on a sticky note. Deleting a *topic* cascades
 into every student's record, so it waits behind an account nobody is signed
-into by default. Deletes say what will be lost — "3 students checked in, 2
+into by default. Deletes state what will be lost — "3 students checked in, 2
 notes" — rather than asking "are you sure?", which is answered yes by reflex.
-
-**Merging duplicate students is not automated.** Their old system kept one page
-per student per level and recorded first names only for years, so one child is
-"Rohan", "Rohan M" and "Rohan Mistry". Tested against attendance, 109 of 126
-same-name groups had too little evidence to decide either way, and 27 students
-legitimately attend two classes — so there is no reliable second key. Fusing
-two children's records is far worse than leaving them apart, so the app ships a
-review screen with the evidence on it and a coach decides.
 
 **Database tests run inside a transaction and roll back**, which is why they
 can be pointed at the production database. Every bug that ever reached a page
-in this project lived in that layer — a policy without a grant, a trigger that
+in this project lived in that layer: a policy without a grant, a trigger that
 had to fire, a realtime socket that reported `SUBSCRIBED` and then delivered
 nothing because it carried the wrong token. None of it is visible to a type
 checker.
+
+**No real student data has ever been in this repository** — and
+`scripts/check-names.mjs` tests that rather than trusting it, checking every
+name on the academy's enrolment list against every tracked file. It found three
+that had crept into code comments as examples.
 
 ---
 
 ## Stack
 
-**TypeScript · Next.js 16** (App Router, server components, server actions,
-Turbopack) **· React 19 · Supabase** (Postgres, auth, row-level security,
-realtime) **· Tailwind CSS v4 · Vitest**
+**TypeScript · Next.js 16** (App Router, server components, server actions) **·
+React 19 · PostgreSQL** via **Supabase** (auth, row-level security, realtime)
+**· Python** (workbook parser) **· Tailwind CSS v4 · Vitest**
 
 Deployed on **Vercel** (this demo) and **Cloudflare Workers** via OpenNext (the
-academy's instance). A nightly **GitHub Action** takes a backup and keeps the
-class calendar generated eight weeks ahead.
+academy's instance — Vercel's free tier excludes commercial use). A nightly
+**GitHub Action** takes a backup and keeps the class calendar generated eight
+weeks ahead.
 
-Schema, policies and functions are plain SQL migrations applied by hand and in
-order — sixteen of them, in `supabase/migrations/`.
+Schema, policies and functions are sixteen plain SQL migrations in
+`supabase/migrations/`, applied by hand and in order.
 
 ---
 
@@ -120,9 +164,9 @@ cp .env.example .env.local     # fill in from the Supabase dashboard
 npm run dev                    # http://localhost:3000
 ```
 
-Then, in a fresh Supabase project, paste `supabase/setup_all.sql` into the SQL
-editor: it is every migration plus the coach rows plus the demo data, joined
-into one file. Regenerate it with `bash supabase/build_setup_all.sh`.
+In a fresh Supabase project, paste `supabase/setup_all.sql` into the SQL
+editor — every migration plus the coach rows plus the demo data, joined into
+one file. Regenerate it with `bash supabase/build_setup_all.sh`.
 
 There is no public sign-up. Coach accounts are created in the Supabase console
 and given a row in `coaches`.
@@ -135,7 +179,7 @@ and given a row in `coaches`.
 | `npm run lint` | ESLint |
 | `node scripts/generate_demo_seed.mjs` | regenerate the demo data |
 | `node scripts/backup.mjs` | snapshot every table to `backups/` |
-| `node scripts/check-names.mjs` | fails if a real student's name reached a tracked file |
+| `node scripts/check-names.mjs` | fail if a real student's name reached a tracked file |
 
 The demo data simulates a twelve-week term rather than sprinkling random
 statuses, so it is internally consistent — nobody is ahead on a topic their
@@ -171,9 +215,7 @@ access model, and every trap this codebase has already fallen into.
 ## On the data
 
 No real student data is in this repository or in the demo. Names, marks,
-attendance and notes in the demo are generated, and
-`scripts/check-names.mjs` tests that claim rather than trusting it — every
-name on the academy's enrolment list, against every tracked file. The academy's records live in
+attendance and notes in the demo are generated. The academy's records live in
 their own Supabase project; the importer reads their old system and never
 writes to it, and its output, their roster and every backup are gitignored.
 
