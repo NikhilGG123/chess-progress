@@ -1,0 +1,72 @@
+name: Nightly backup
+
+# The Supabase free tier takes no automatic backups at all -- not fewer, none.
+# Until this project is on a paid plan, this job is the only copy that exists
+# without somebody remembering to make one, which is the whole point: a backup
+# that depends on one person being available is a favour, not a backup.
+#
+# It also keeps the project awake. A free Supabase project pauses after seven
+# days of inactivity, and a paused project is a broken link for anyone the
+# demo has been shared with.
+
+on:
+  schedule:
+    # 09:20 UTC — early morning in the Americas, after any evening class has
+    # been marked up. Deliberately not on the hour: GitHub's scheduler is
+    # busiest then and delays runs.
+    - cron: "20 9 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Write the credentials the script reads
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          # scripts/backup.mjs reads .env.local, the same file it reads on a
+          # laptop, so there is one code path rather than two.
+          {
+            echo "SUPABASE_DB_URL=${SUPABASE_DB_URL}"
+            echo "SUPABASE_DB_PASSWORD=${SUPABASE_DB_PASSWORD}"
+          } > .env.local
+
+      - name: Take the snapshot
+        run: node scripts/backup.mjs --out backups
+
+      - name: Keep it
+        uses: actions/upload-artifact@v4
+        with:
+          name: chess-progress-backup-${{ github.run_number }}
+          path: backups/*.json
+          # Ninety days is the maximum GitHub allows on a free plan, and long
+          # enough that a mistake noticed weeks later is still recoverable.
+          retention-days: 90
+          if-no-files-found: error
+
+      # The centre's classes run indefinitely, so the calendar has to keep
+      # filling itself in. Idempotent: it only adds dates that are missing, and
+      # a week a coach cancelled stays cancelled.
+      #
+      # This is also what keeps the project awake -- a free Supabase project
+      # pauses after seven days idle, and a paused project is a broken link.
+      - name: Keep every class generated eight weeks ahead
+        run: node scripts/top-up-classes.mjs
+
+      - name: Do not leave the credentials on disk
+        if: always()
+        run: rm -f .env.local

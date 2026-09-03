@@ -1,0 +1,155 @@
+@import "tailwindcss";
+
+/* Dark mode is driven by a .dark class on <html> so a coach can override the
+   system setting. The system preference is applied as the default below. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------------------
+   Semantic tokens — light (default)
+
+   Every colour is defined here first, so no value exists only inside a media
+   query or a .dark block.
+   --------------------------------------------------------------------------- */
+:root {
+  --surface: #f8fafc;
+  --surface-raised: #ffffff;
+  --foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+
+  --primary: #1e293b;
+  --primary-foreground: #ffffff;
+  --ring: #2563eb;
+
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+
+  /* Progress statuses. Paired with an icon and a text label everywhere they
+     appear — colour alone must never carry the meaning. */
+  --status-not-seen: #f1f5f9;
+  --status-not-seen-fg: #475569;
+  --status-seen-once: #dbeafe;
+  --status-seen-once-fg: #1d4ed8;
+  --status-seen-multiple: #bfdbfe;
+  --status-seen-multiple-fg: #1e40af;
+  --status-needs-testing: #fef3c7;
+  --status-needs-testing-fg: #a16207;
+  --status-complete: #dcfce7;
+  --status-complete-fg: #15803d;
+}
+
+/* System preference, when the coach has not made an explicit choice. */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --surface: #0f172a;
+    --surface-raised: #1b2336;
+    --foreground: #f8fafc;
+    --muted: #272f42;
+    --muted-foreground: #94a3b8;
+    --border: #334155;
+    --border-strong: #475569;
+
+    --primary: #e2e8f0;
+    --primary-foreground: #0f172a;
+    --ring: #60a5fa;
+
+    --destructive: #f87171;
+    --destructive-foreground: #0f172a;
+
+    --status-not-seen: #272f42;
+    --status-not-seen-fg: #94a3b8;
+    --status-seen-once: #1e3a5f;
+    --status-seen-once-fg: #93c5fd;
+    --status-seen-multiple: #2b5a96;
+    --status-seen-multiple-fg: #dbeafe;
+    --status-needs-testing: #422f06;
+    --status-needs-testing-fg: #fcd34d;
+    --status-complete: #14532d;
+    --status-complete-fg: #86efac;
+  }
+}
+
+/* Explicit toggle — wins over the system preference in both directions. */
+:root.dark {
+  --surface: #0f172a;
+  --surface-raised: #1b2336;
+  --foreground: #f8fafc;
+  --muted: #272f42;
+  --muted-foreground: #94a3b8;
+  --border: #334155;
+  --border-strong: #475569;
+
+  --primary: #e2e8f0;
+  --primary-foreground: #0f172a;
+  --ring: #60a5fa;
+
+  --destructive: #f87171;
+  --destructive-foreground: #0f172a;
+
+  --status-not-seen: #272f42;
+  --status-not-seen-fg: #94a3b8;
+  --status-seen-once: #1e3a5f;
+  --status-seen-once-fg: #93c5fd;
+  --status-seen-multiple: #2b5a96;
+  --status-seen-multiple-fg: #dbeafe;
+  --status-needs-testing: #422f06;
+  --status-needs-testing-fg: #fcd34d;
+  --status-complete: #14532d;
+  --status-complete-fg: #86efac;
+}
+
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-status-not-seen: var(--status-not-seen);
+  --color-status-not-seen-fg: var(--status-not-seen-fg);
+  --color-status-seen-once: var(--status-seen-once);
+  --color-status-seen-once-fg: var(--status-seen-once-fg);
+  --color-status-seen-multiple: var(--status-seen-multiple);
+  --color-status-seen-multiple-fg: var(--status-seen-multiple-fg);
+  --color-status-needs-testing: var(--status-needs-testing);
+  --color-status-needs-testing-fg: var(--status-needs-testing-fg);
+  --color-status-complete: var(--status-complete);
+  --color-status-complete-fg: var(--status-complete-fg);
+
+  --font-sans: var(--font-fira-sans);
+}
+
+body {
+  background: var(--surface);
+  color: var(--foreground);
+  font-family: var(--font-fira-sans), system-ui, sans-serif;
+}
+
+/* Counts and dates sit in columns — keep digits from jittering. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* A visible focus ring is non-negotiable: this is a keyboard-heavy grid. */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
