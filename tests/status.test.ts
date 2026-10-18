@@ -5,7 +5,6 @@ import {
   awaitingTest,
   countByStatus,
   cellKey,
-  suggestNextTopic,
   type Status,
 } from "@/lib/status";
 import type { Topic } from "@/lib/types";
@@ -44,50 +43,6 @@ describe("the coaches' marks", () => {
   it("gives every status a distinct mark", () => {
     const marks = STATUSES.map((status) => STATUS_META[status].mark);
     expect(new Set(marks).size).toBe(STATUSES.length);
-  });
-});
-
-describe("suggestNextTopic", () => {
-  it("suggests the first topic for a brand new student", () => {
-    const rows = [1, 2, 3].map((n) => row(n, "not_seen"));
-    expect(suggestNextTopic(rows)?.sort_order).toBe(1);
-  });
-
-  it("returns the gap, not the last unfinished topic", () => {
-    // Topics 1, 2, 4 and 5 are finished; 3 was skipped. A rule that walked to
-    // the end would send the coach past the thing the student missed.
-    const rows = [
-      row(1, "complete"),
-      row(2, "complete"),
-      row(3, "seen_once"),
-      row(4, "complete"),
-      row(5, "complete"),
-    ];
-    expect(suggestNextTopic(rows)?.sort_order).toBe(3);
-  });
-
-  it("ignores the order the rows arrive in", () => {
-    const rows = [row(9, "not_seen"), row(2, "not_seen"), row(5, "not_seen")];
-    expect(suggestNextTopic(rows)?.sort_order).toBe(2);
-  });
-
-  it("returns null only when everything is complete", () => {
-    expect(suggestNextTopic([1, 2, 3].map((n) => row(n, "complete")))).toBeNull();
-  });
-
-  it("still suggests a topic seen twice but never tested", () => {
-    // Seen multiple times is not finished. Only a coach's test finishes it.
-    const rows = [row(1, "complete"), row(2, "seen_multiple")];
-    expect(suggestNextTopic(rows)?.sort_order).toBe(2);
-  });
-
-  it("still suggests a topic waiting on a test", () => {
-    const rows = [row(1, "complete"), row(2, "needs_testing")];
-    expect(suggestNextTopic(rows)?.sort_order).toBe(2);
-  });
-
-  it("returns null for a level with no topics", () => {
-    expect(suggestNextTopic([])).toBeNull();
   });
 });
 

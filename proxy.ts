@@ -11,7 +11,13 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Everything except static assets and image files.
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Everything except static assets, image files, and the two files crawlers
+    // fetch before anything else.
+    //
+    // robots.txt has to be exempt or the gate redirects it to /login, and a
+    // robots.txt that answers with an HTML page is treated as absent -- which
+    // means "crawl everything", the exact opposite of what app/robots.ts says.
+    // Found by asking for it: HTTP 307, location /login.
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

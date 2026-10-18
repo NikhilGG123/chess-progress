@@ -1,16 +1,23 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AttendanceList } from "@/components/attendance-list";
-import { ConfirmButton } from "@/components/confirm-button";
-import { SessionWorkspace } from "@/components/session-workspace";
+import { AttendanceList } from "@/components/sessions/attendance-list";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
+import { ConfirmButton } from "@/components/ui/confirm-button";
+import { SessionWorkspace } from "@/components/sessions/session-workspace";
 import { formatSessionDate, formatSessionTime } from "@/lib/format";
-import { getLevelsWithTopics, getProgressWithTopics, getStudents } from "@/lib/queries";
+import {
+  getLevelsWithTopics,
+  getProgressWithTopics,
+  getStudents,
+} from "@/lib/queries";
 import { cellKey, type Status, type StatusMap } from "@/lib/status";
 import { levelIn } from "@/lib/types";
 import { createClient } from "@/utils/supabase/server";
 import { deleteSession } from "../actions";
 
-export default async function SessionPage({ params }: PageProps<"/sessions/[id]">) {
+export default async function SessionPage({
+  params,
+}: PageProps<"/sessions/[id]">) {
   const { id } = await params;
   const supabase = await createClient();
 
@@ -22,28 +29,35 @@ export default async function SessionPage({ params }: PageProps<"/sessions/[id]"
 
   if (!session) notFound();
 
-  const [students, levels, attendance, notes, covered, regulars] = await Promise.all([
-    getStudents(),
-    getLevelsWithTopics(),
-    supabase.from("attendance").select("student_id").eq("session_id", id),
-    supabase
-      .from("session_notes")
-      .select("student_id, note_text")
-      .eq("session_id", id),
-    supabase.from("session_topics").select("topic_id").eq("session_id", id),
-    // Stars live on the repeating class, so a one-off session has none.
-    session.series_id
-      ? supabase
-          .from("class_regulars")
-          .select("student_id")
-          .eq("series_id", session.series_id)
-      : Promise.resolve({ data: [] as { student_id: string }[] }),
-  ]);
+  const [students, levels, attendance, notes, covered, regulars] =
+    await Promise.all([
+      getStudents(),
+      getLevelsWithTopics(),
+      supabase.from("attendance").select("student_id").eq("session_id", id),
+      supabase
+        .from("session_notes")
+        .select("student_id, note_text")
+        .eq("session_id", id),
+      supabase.from("session_topics").select("topic_id").eq("session_id", id),
+      // Stars live on the repeating class, so a one-off session has none.
+      session.series_id
+        ? supabase
+            .from("class_regulars")
+            .select("student_id")
+            .eq("series_id", session.series_id)
+        : Promise.resolve({ data: [] as { student_id: string }[] }),
+    ]);
 
-  const coveredTopicIds = (covered.data ?? []).map((row) => row.topic_id as string);
-  const regularIds = (regulars.data ?? []).map((row) => row.student_id as string);
+  const coveredTopicIds = (covered.data ?? []).map(
+    (row) => row.topic_id as string,
+  );
+  const regularIds = (regulars.data ?? []).map(
+    (row) => row.student_id as string,
+  );
 
-  const presentIds = (attendance.data ?? []).map((row) => row.student_id as string);
+  const presentIds = (attendance.data ?? []).map(
+    (row) => row.student_id as string,
+  );
   const present = students.filter((student) => presentIds.includes(student.id));
 
   const notesCount = (notes.data ?? []).length;
@@ -53,7 +67,9 @@ export default async function SessionPage({ params }: PageProps<"/sessions/[id]"
     initialNotes[row.student_id as string] = row.note_text as string;
   }
 
-  const progress = await getProgressWithTopics(present.map((student) => student.id));
+  const progress = await getProgressWithTopics(
+    present.map((student) => student.id),
+  );
 
   const statuses: StatusMap = {};
   for (const row of progress) {
@@ -96,51 +112,44 @@ This also deletes ${presentIds.length} attendance record${
                 } and ${notesCount} note${notesCount === 1 ? "" : "s"}.
 Students keep their progress. This cannot be undone.`
           }
-          className="h-9 cursor-pointer rounded-md border border-border px-3 text-sm
-                     text-muted-foreground transition-colors duration-200
-                     hover:border-destructive hover:text-destructive"
         >
           Delete class
         </ConfirmButton>
       </div>
 
-      <section className="mb-8">
-        <details open={present.length === 0} className="group">
-          <summary className="cursor-pointer list-none rounded-lg border border-border
-                              bg-surface-raised px-4 py-3 text-sm font-medium
-                              transition-colors duration-200 hover:bg-muted">
-            Attendance
-            <span className="tabular ml-2 font-normal text-muted-foreground">
-              {present.length} of {students.length} checked in
-            </span>
-            <span className="float-right text-muted-foreground">
-              <span className="group-open:hidden">Show</span>
-              <span className="hidden group-open:inline">Hide</span>
-            </span>
-          </summary>
-
-          <div className="mt-3">
-            <AttendanceList
-              sessionId={session.id}
-              presentIds={presentIds}
-              seriesId={session.series_id ?? null}
-              regularIds={regularIds}
-              students={students.map((student) => {
-                // Which of this student's levels matters depends on the
-                // programme the class belongs to.
-                const level = levelIn(student, session.program_id);
-                return {
-                  id: student.id,
-                  full_name: student.full_name,
-                  level_id: level?.id ?? null,
-                  level_label: level?.name ?? "Not in this programme",
-                  level_number: level?.number ?? null,
-                };
-              })}
-            />
-          </div>
-        </details>
-      </section>
+      {/* Step one of the evening, and the same collapsible as everywhere
+          else. It was a bare <details> with a float-right Show/Hide -- the
+          same gesture as the sessions page, built twice, remembered in
+          neither. Open only when nobody is in yet. */}
+      <CollapsibleSection
+        id={`attendance.${session.id}`}
+        title="Attendance"
+        // Not "9 of 645": that is the whole roster, and reads as though 645
+        // were expected in one room.
+        summary={`${present.length} checked in`}
+        defaultOpen={present.length === 0}
+      >
+        <AttendanceList
+          sessionId={session.id}
+          presentIds={presentIds}
+          seriesId={session.series_id ?? null}
+          regularIds={regularIds}
+          students={students.map((student) => {
+            // Which of this student's levels matters depends on the
+            // programme the class belongs to.
+            const level = levelIn(student, session.program_id);
+            return {
+              id: student.id,
+              full_name: student.full_name,
+              level_id: level?.id ?? null,
+              level_label: level?.name ?? "Not in this programme",
+              level_number: level?.number ?? null,
+              needs_followup: student.needs_followup,
+              followup_set_at: student.followup_set_at,
+            };
+          })}
+        />
+      </CollapsibleSection>
 
       {present.length === 0 ? (
         <p className="rounded-lg border border-border bg-surface-raised px-4 py-10 text-center text-sm text-muted-foreground">

@@ -1,4 +1,12 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "vitest";
 import { Client } from "pg";
 
 /**
@@ -13,7 +21,6 @@ import { Client } from "pg";
  */
 const url = process.env.SUPABASE_DB_URL;
 const password = process.env.SUPABASE_DB_PASSWORD;
-
 
 const maybe = url && password ? describe : describe.skip;
 
@@ -48,10 +55,9 @@ maybe("database", () => {
   /** Run the rest of this transaction as a signed-in user. */
   async function actAs(userId: string | null) {
     if (userId) {
-      await client.query(
-        `select set_config('request.jwt.claims', $1, true)`,
-        [JSON.stringify({ sub: userId, role: "authenticated" })],
-      );
+      await client.query(`select set_config('request.jwt.claims', $1, true)`, [
+        JSON.stringify({ sub: userId, role: "authenticated" }),
+      ]);
       await client.query("set local role authenticated");
     } else {
       await client.query("set local role anon");
@@ -60,6 +66,23 @@ maybe("database", () => {
 
   async function aCoachId() {
     const { rows } = await client.query("select id from coaches limit 1");
+    return rows[0]?.id as string;
+  }
+
+  // Alongside aCoachId rather than inside one describe, because more than one
+  // block needs them: who may do a thing and who may see it afterwards are the
+  // same question asked twice.
+  async function anAdminId() {
+    const { rows } = await client.query(
+      "select id from coaches where role = 'admin' limit 1",
+    );
+    return rows[0]?.id as string;
+  }
+
+  async function aPlainCoachId() {
+    const { rows } = await client.query(
+      "select id from coaches where role = 'coach' limit 1",
+    );
     return rows[0]?.id as string;
   }
 
@@ -292,9 +315,10 @@ maybe("database", () => {
          returning id`,
       );
 
-      await client.query("select generate_series_sessions($1, current_date + 20)", [
-        series[0].id,
-      ]);
+      await client.query(
+        "select generate_series_sessions($1, current_date + 20)",
+        [series[0].id],
+      );
 
       const { rows } = await client.query(
         `select min(session_date) as first from sessions where series_id = $1`,
@@ -319,20 +343,6 @@ maybe("database", () => {
   });
 
   describe("roles", () => {
-    async function anAdminId() {
-      const { rows } = await client.query(
-        "select id from coaches where role = 'admin' limit 1",
-      );
-      return rows[0]?.id as string;
-    }
-
-    async function aPlainCoachId() {
-      const { rows } = await client.query(
-        "select id from coaches where role = 'coach' limit 1",
-      );
-      return rows[0]?.id as string;
-    }
-
     it("has exactly one kind of account that can destroy things", async () => {
       const { rows } = await client.query(
         "select role, count(*)::int as n from coaches group by role order by role",
@@ -346,11 +356,15 @@ maybe("database", () => {
       // This is the trap: row-level security does not raise on a forbidden
       // DELETE, it just matches no rows. Code that checks for an error would
       // report success and the topic would still be there.
-      const { rows: topics } = await client.query("select id from topics limit 1");
+      const { rows: topics } = await client.query(
+        "select id from topics limit 1",
+      );
       const topicId = topics[0].id;
 
       await actAs(await aPlainCoachId());
-      const result = await client.query("delete from topics where id = $1", [topicId]);
+      const result = await client.query("delete from topics where id = $1", [
+        topicId,
+      ]);
       expect(result.rowCount).toBe(0);
 
       await client.query("reset role");
@@ -373,6 +387,54 @@ maybe("database", () => {
         created[0].id,
       ]);
       expect(result.rowCount).toBe(1);
+    });
+
+    it("lets a coach create a programme, so Coding does not need a developer", async () => {
+      // The name is generated because the demo already has a Coding programme
+      // and the live database does not -- a fixed name passes against one and
+      // fails against the other, which is how this was found.
+      //
+      // The coaches asked for coding classes in the same breath as everything
+      // else in v2. The schema has carried programmes since 0010, but until
+      // the curriculum page grew a form the only way to add one was SQL by
+      // hand -- which is why their own instance had one programme and the
+      // demo, whose seed inserts a second, looked like the richer system.
+      await actAs(await aPlainCoachId());
+
+      const { rows } = await client.query(
+        `insert into programs (name, sort_order) values ('Programme ' || gen_random_uuid(), 99) returning id`,
+      );
+      expect(rows).toHaveLength(1);
+
+      const { rows: levels } = await client.query(
+        `insert into levels (program_id, name, number) values ($1, 'Level 1', 1)
+         returning id`,
+        [rows[0].id],
+      );
+      expect(levels).toHaveLength(1);
+    });
+
+    it("numbers levels within a programme, not across all of them", async () => {
+      // Chess already has levels 1-4. A new programme starts again at 1, and
+      // the unique constraint is (program_id, number) -- so this must not
+      // collide with Chess's Level 1.
+      const { rows: program } = await client.query(
+        `insert into programs (name, sort_order) values ('Programme ' || gen_random_uuid(), 98) returning id`,
+      );
+
+      await actAs(await aPlainCoachId());
+      const { rows } = await client.query(
+        `insert into levels (program_id, name, number) values ($1, 'Level 1', 1)
+         returning number`,
+        [program[0].id],
+      );
+      expect(rows[0].number).toBe(1);
+
+      await client.query("reset role");
+      const { rows: chess } = await client.query(
+        `select count(*)::int n from levels where number = 1`,
+      );
+      expect(chess[0].n).toBeGreaterThan(1);
     });
 
     it("lets an ordinary coach delete a class, because cancelling one is routine", async () => {
@@ -409,7 +471,6 @@ maybe("database", () => {
       expect(updated.rowCount).toBe(1);
     });
   });
-
 
   describe("the one-press advance", () => {
     /** A class with one student in it, covering the level's first two topics. */
@@ -633,6 +694,204 @@ maybe("database", () => {
     });
   });
 
+  describe("the follow-up flag", () => {
+    it("lets a coach raise and clear it, recording who and when", async () => {
+      const coachId = await aPlainCoachId();
+      const { rows: made } = await client.query(
+        `insert into students (full_name) values ('Flagged Child') returning id`,
+      );
+
+      await actAs(coachId);
+      await client.query(
+        `update students
+            set needs_followup = true, followup_set_by = $2, followup_set_at = now()
+          where id = $1`,
+        [made[0].id, coachId],
+      );
+
+      await client.query("reset role");
+      const { rows: on } = await client.query(
+        "select needs_followup, followup_set_by, followup_set_at from students where id = $1",
+        [made[0].id],
+      );
+      expect(on[0].needs_followup).toBe(true);
+      expect(on[0].followup_set_by).toBe(coachId);
+      expect(on[0].followup_set_at).not.toBeNull();
+
+      // Clearing wipes the trail with it: a stale name and date sitting behind
+      // an unticked box is worse than nothing.
+      await actAs(coachId);
+      await client.query(
+        `update students
+            set needs_followup = false, followup_set_by = null, followup_set_at = null
+          where id = $1`,
+        [made[0].id],
+      );
+
+      await client.query("reset role");
+      const { rows: off } = await client.query(
+        "select needs_followup, followup_set_by, followup_set_at from students where id = $1",
+        [made[0].id],
+      );
+      expect(off[0].needs_followup).toBe(false);
+      expect(off[0].followup_set_by).toBeNull();
+      expect(off[0].followup_set_at).toBeNull();
+    });
+
+    it("starts every student unflagged", async () => {
+      const { rows } = await client.query(
+        `insert into students (full_name) values ('Unflagged') returning needs_followup`,
+      );
+      expect(rows[0].needs_followup).toBe(false);
+    });
+
+    it("tells an anonymous request nothing about it", async () => {
+      // It is one column on students, which anon cannot read at all -- but the
+      // flag is about a family's circumstances, so it is worth asserting
+      // rather than assuming it inherited the right protection.
+      await actAs(null);
+      await expect(
+        client.query("select needs_followup from students limit 1"),
+      ).rejects.toThrow(/permission denied/i);
+    });
+  });
+
+  describe("nothing is ever really deleted", () => {
+    it("keeps the row after a student is deleted", async () => {
+      const { rows: made } = await client.query(
+        `insert into students (full_name) values ('Archived Child') returning id`,
+      );
+      await actAs(await anAdminId());
+      await client.query("delete from students where id = $1", [made[0].id]);
+
+      await client.query("reset role");
+      const { rows } = await client.query(
+        `select data ->> 'full_name' as name, row_id
+           from deleted_rows where table_name = 'students' and row_id = $1`,
+        [made[0].id],
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0].name).toBe("Archived Child");
+    });
+
+    it("keeps every mark a deleted topic took down with it", async () => {
+      // The accident worth protecting against. Deleting one topic cascades
+      // into a progress row for every student in that level -- hundreds of
+      // marks gone from one click, and a nightly backup would cost three days
+      // of other work to get them back.
+      const { rows: topic } = await client.query(
+        `insert into topics (level_id, name, sort_order)
+         select id, 'Doomed With Marks', 9998 from levels limit 1 returning id`,
+      );
+      const { rows: students } = await client.query(
+        "select id from students limit 3",
+      );
+      for (const student of students) {
+        await client.query(
+          `insert into progress (student_id, topic_id, status)
+           values ($1, $2, 'complete')
+           on conflict (student_id, topic_id) do update set status = 'complete'`,
+          [student.id, topic[0].id],
+        );
+      }
+
+      await actAs(await anAdminId());
+      await client.query("delete from topics where id = $1", [topic[0].id]);
+
+      await client.query("reset role");
+      const { rows: archived } = await client.query(
+        `select count(*)::int as n from deleted_rows
+          where table_name = 'progress' and data ->> 'topic_id' = $1
+            and data ->> 'status' = 'complete'`,
+        [topic[0].id],
+      );
+      expect(archived[0].n).toBeGreaterThanOrEqual(3);
+    });
+
+    it("records who did it", async () => {
+      const adminId = await anAdminId();
+      const { rows: made } = await client.query(
+        `insert into students (full_name) values ('Traceable') returning id`,
+      );
+      await actAs(adminId);
+      await client.query("delete from students where id = $1", [made[0].id]);
+
+      await client.query("reset role");
+      const { rows } = await client.query(
+        "select deleted_by from deleted_rows where row_id = $1",
+        [made[0].id],
+      );
+      expect(rows[0].deleted_by).toBe(adminId);
+    });
+
+    it("does not let anyone empty the archive", async () => {
+      // An archive the person who made the mistake can also clear is not an
+      // archive. Insert happens inside a security definer trigger, so no API
+      // role needs -- or has -- write access to this table.
+      //
+      // Both ids are resolved before any role switch: a coach may only read
+      // their own row in `coaches`, so asking for the admin's id while acting
+      // as a coach returns nothing and quietly lands you on `anon`.
+      const coachId = await aPlainCoachId();
+      const adminId = await anAdminId();
+
+      const { rows: made } = await client.query(
+        `insert into students (full_name) values ('Undeletable Trace') returning id`,
+      );
+      await client.query("delete from students where id = $1", [made[0].id]);
+
+      // Refused outright, not silently matching zero rows. The privilege
+      // itself is revoked rather than filtered by a policy, which is the
+      // stronger of the two: a policy that matches nothing still leaves DELETE
+      // granted, and one loosened policy later would quietly re-open it.
+      // A savepoint, not a rollback: the failed statement poisons the
+      // transaction and has to be unwound, but rolling the whole thing back
+      // would also undo the delete whose archived row this test is about to
+      // check for.
+      for (const who of [coachId, adminId]) {
+        await client.query("savepoint before_attempt");
+        await actAs(who);
+        await expect(
+          client.query("delete from deleted_rows where row_id = $1", [
+            made[0].id,
+          ]),
+        ).rejects.toThrow(/permission denied/i);
+        await client.query("rollback to savepoint before_attempt");
+      }
+
+      const { rows: still } = await client.query(
+        "select count(*)::int as n from deleted_rows where row_id = $1",
+        [made[0].id],
+      );
+      expect(still[0].n).toBe(1);
+    });
+
+    it("shows the archive to an admin and not to a coach", async () => {
+      // Resolved first, for the same reason as above.
+      const coachId = await aPlainCoachId();
+      const adminId = await anAdminId();
+
+      const { rows: made } = await client.query(
+        `insert into students (full_name) values ('Only Admin Sees') returning id`,
+      );
+      await client.query("delete from students where id = $1", [made[0].id]);
+
+      await actAs(coachId);
+      const asCoach = await client.query(
+        "select id from deleted_rows where row_id = $1",
+        [made[0].id],
+      );
+      expect(asCoach.rows).toHaveLength(0);
+
+      await client.query("reset role");
+      await actAs(adminId);
+      const asAdmin = await client.query(
+        "select id from deleted_rows where row_id = $1",
+        [made[0].id],
+      );
+      expect(asAdmin.rows).toHaveLength(1);
+    });
+  });
 
   describe("merging two pages into one child", () => {
     /** Two pages for the same child, at two levels, as their old system has it. */
@@ -745,7 +1004,10 @@ maybe("database", () => {
       ]);
 
       await asCoach();
-      await client.query("select merge_students($1, $2, null)", [upperPage, lowerPage]);
+      await client.query("select merge_students($1, $2, null)", [
+        upperPage,
+        lowerPage,
+      ]);
 
       const { rows } = await client.query(
         `select status from progress where student_id = $1 and topic_id = $2`,
@@ -778,7 +1040,10 @@ maybe("database", () => {
       );
 
       await asCoach();
-      await client.query("select merge_students($1, $2, null)", [upperPage, lowerPage]);
+      await client.query("select merge_students($1, $2, null)", [
+        upperPage,
+        lowerPage,
+      ]);
 
       const { rows: attendance } = await client.query(
         "select count(*)::int as n from attendance where student_id = $1",
@@ -817,7 +1082,10 @@ maybe("database", () => {
       }
 
       await asCoach();
-      await client.query("select merge_students($1, $2, null)", [upperPage, lowerPage]);
+      await client.query("select merge_students($1, $2, null)", [
+        upperPage,
+        lowerPage,
+      ]);
 
       const { rows } = await client.query(
         "select note_text from session_notes where student_id = $1 and session_id = $2",
@@ -834,7 +1102,10 @@ maybe("database", () => {
       // Merge the higher page INTO the lower one, so the level has to be
       // carried across rather than simply left alone.
       await asCoach();
-      await client.query("select merge_students($1, $2, null)", [lowerPage, upperPage]);
+      await client.query("select merge_students($1, $2, null)", [
+        lowerPage,
+        upperPage,
+      ]);
 
       const { rows } = await client.query(
         `select level_id from enrollments where student_id = $1`,
@@ -855,7 +1126,10 @@ maybe("database", () => {
     it("leaves nothing pointing at the absorbed record", async () => {
       const { lowerPage, upperPage } = await twoPages();
       await asCoach();
-      await client.query("select merge_students($1, $2, null)", [upperPage, lowerPage]);
+      await client.query("select merge_students($1, $2, null)", [
+        upperPage,
+        lowerPage,
+      ]);
 
       for (const table of [
         "progress",
@@ -873,5 +1147,4 @@ maybe("database", () => {
       }
     });
   });
-
 });

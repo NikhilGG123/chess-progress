@@ -1,0 +1,17 @@
+# Generated, or not ours
+.next/
+.open-next/
+.wrangler/
+node_modules/
+coverage/
+package-lock.json
+next-env.d.ts
+
+# Real data -- never formatted, never committed
+backups/
+supabase/
+
+# Hand-written prose and tables; Prettier would re-align them
+*.md
+
+.claude/

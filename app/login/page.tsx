@@ -2,13 +2,15 @@
 
 import { useActionState } from "react";
 import { login, type LoginState } from "./actions";
+import { buttonClass } from "@/components/ui/button";
 
 const initialState: LoginState = { error: null };
 
-// Set only on the public demo deployment. A recruiter should not have to guess
+// Set only on the public demo deployment. A visitor should not have to guess
 // a password, and the real deployment must never show one.
 const DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
+/** The one page reachable signed out. proxy.ts sends everything else here. */
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(login, initialState);
 
@@ -19,9 +21,7 @@ export default function LoginPage() {
           <h1 className="text-2xl font-semibold tracking-tight">
             Chess Progress
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Coach sign-in
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">Coach sign-in</p>
 
           {DEMO && (
             <div className="mt-4 rounded-md border border-border bg-surface-raised p-3">
@@ -86,9 +86,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={pending}
-              className="h-11 cursor-pointer rounded-md bg-primary text-base font-medium
-                         text-primary-foreground transition-opacity duration-200
-                         hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              className={buttonClass("primary", "lg")}
             >
               {pending ? "Signing in…" : "Sign in"}
             </button>

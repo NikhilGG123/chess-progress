@@ -1,7 +1,8 @@
-import { BackupButton } from "@/components/backup-button";
+import { BackupButton } from "@/components/admin/backup-button";
 import { currentCoach } from "@/lib/queries";
 import { createClient } from "@/utils/supabase/server";
 
+/** Size of the tables that grow, as a quick check that a restore or import landed. */
 async function rowCounts() {
   const supabase = await createClient();
   const tables = [
@@ -62,9 +63,10 @@ export default async function AdminPage() {
       <section className="mb-8 rounded-lg border border-border bg-surface-raised p-5">
         <h2 className="text-sm font-medium">Backup</h2>
         <p className="mt-1 mb-4 text-sm text-muted-foreground">
-          The free Supabase plan takes <strong>no automatic backups at all</strong>.
-          A nightly job keeps a copy, and this button is the one to press before
-          anything irreversible — an import, a bulk delete, the end of term.
+          The free Supabase plan takes{" "}
+          <strong>no automatic backups at all</strong>. A nightly job keeps a
+          copy, and this button is the one to press before anything irreversible
+          — an import, a bulk delete, the end of term.
         </p>
         <BackupButton />
       </section>
@@ -75,7 +77,9 @@ export default async function AdminPage() {
           {counts.map(({ table, count }) => (
             <li key={table} className="flex justify-between py-2">
               <span className="text-muted-foreground">{table}</span>
-              <span className="tabular font-medium">{count.toLocaleString()}</span>
+              <span className="tabular font-medium">
+                {count.toLocaleString()}
+              </span>
             </li>
           ))}
         </ul>

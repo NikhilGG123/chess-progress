@@ -21,7 +21,9 @@ for (const line of fs.readFileSync(".env.local", "utf8").split(/\r?\n/)) {
 }
 
 if (!env.REAL_SUPABASE_DB_URL || !env.REAL_SUPABASE_DB_PASSWORD) {
-  console.error("REAL_SUPABASE_DB_URL and REAL_SUPABASE_DB_PASSWORD must be in .env.local");
+  console.error(
+    "REAL_SUPABASE_DB_URL and REAL_SUPABASE_DB_PASSWORD must be in .env.local",
+  );
   process.exit(1);
 }
 

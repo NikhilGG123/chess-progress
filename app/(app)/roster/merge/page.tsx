@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MergeGroupCard } from "@/components/merge-group";
+import { MergeGroupCard } from "@/components/students/merge-group";
 import { getMergeCandidates } from "@/lib/queries";
 
 /**
@@ -20,15 +20,23 @@ import { getMergeCandidates } from "@/lib/queries";
  */
 export default async function MergePage() {
   const groups = await getMergeCandidates();
-  const pages = groups.reduce((total, group) => total + group.students.length, 0);
+  const pages = groups.reduce(
+    (total, group) => total + group.students.length,
+    0,
+  );
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
-      <Link href="/roster" className="text-sm text-muted-foreground hover:underline">
+      <Link
+        href="/roster"
+        className="text-sm text-muted-foreground hover:underline"
+      >
         ← Roster
       </Link>
 
-      <h1 className="mt-1 text-2xl font-semibold tracking-tight">Tidy up the roster</h1>
+      <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+        Tidy up the roster
+      </h1>
       <p className="mt-1 mb-6 text-sm text-muted-foreground">
         Students who moved up a level often have a separate page for each one.
         Where these are the same child, merging keeps everything from all of
@@ -43,10 +51,12 @@ export default async function MergePage() {
       ) : (
         <>
           <p className="mb-4 text-sm text-muted-foreground">
-            <span className="tabular font-medium text-foreground">{groups.length}</span>{" "}
+            <span className="tabular font-medium text-foreground">
+              {groups.length}
+            </span>{" "}
             {groups.length === 1 ? "name" : "names"} to look at, covering{" "}
-            <span className="tabular">{pages}</span> pages. There is no hurry and
-            no need to finish in one go — the list remembers what you have
+            <span className="tabular">{pages}</span> pages. There is no hurry
+            and no need to finish in one go — the list remembers what you have
             settled.
           </p>
 

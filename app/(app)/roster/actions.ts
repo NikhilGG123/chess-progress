@@ -68,12 +68,15 @@ export async function setEnrollment(formData: FormData) {
       .delete()
       .eq("student_id", studentId)
       .eq("program_id", programId);
-    if (error) throw new Error(`Could not unenroll the student: ${error.message}`);
+    if (error)
+      throw new Error(`Could not unenroll the student: ${error.message}`);
   } else {
-    const { error } = await supabase.from("enrollments").upsert(
-      { student_id: studentId, program_id: programId, level_id: levelId },
-      { onConflict: "student_id,program_id" },
-    );
+    const { error } = await supabase
+      .from("enrollments")
+      .upsert(
+        { student_id: studentId, program_id: programId, level_id: levelId },
+        { onConflict: "student_id,program_id" },
+      );
     if (error) throw new Error(`Could not change the level: ${error.message}`);
   }
 
@@ -158,12 +161,20 @@ export async function dismissMerge(studentIds: string[]): Promise<MergeResult> {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const pairs: { student_a: string; student_b: string; dismissed_by: string | null }[] = [];
+  const pairs: {
+    student_a: string;
+    student_b: string;
+    dismissed_by: string | null;
+  }[] = [];
   for (let i = 0; i < studentIds.length; i += 1) {
     for (let j = i + 1; j < studentIds.length; j += 1) {
       // The table requires a < b so a pair cannot be stored twice.
       const [a, b] = [studentIds[i], studentIds[j]].sort();
-      pairs.push({ student_a: a, student_b: b, dismissed_by: user?.id ?? null });
+      pairs.push({
+        student_a: a,
+        student_b: b,
+        dismissed_by: user?.id ?? null,
+      });
     }
   }
 
@@ -175,4 +186,43 @@ export async function dismissMerge(studentIds: string[]): Promise<MergeResult> {
 
   revalidatePath("/roster/merge");
   return { error: null, merged: pairs.length };
+}
+
+export type FollowupResult = { error: string | null };
+
+/**
+ * Flag or unflag a student for follow-up.
+ *
+ * The flag means "look this student up in Jumbula" and carries no detail of
+ * its own -- no amount, no reason, no note. See migration 0018 for why.
+ *
+ * Returns its error rather than throwing, because the caller is a checkbox in
+ * a long list: one failing must say so beside itself and leave the rest of the
+ * page alone.
+ */
+export async function setFollowup(input: {
+  studentId: string;
+  needsFollowup: boolean;
+}): Promise<FollowupResult> {
+  const supabase = await createClient();
+
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { error: "Not signed in." };
+
+  const { error } = await supabase
+    .from("students")
+    .update({
+      needs_followup: input.needsFollowup,
+      // Cleared on unflag, so a stale name and date cannot sit behind an
+      // unticked box waiting to confuse somebody.
+      followup_set_by: input.needsFollowup ? auth.user.id : null,
+      followup_set_at: input.needsFollowup ? new Date().toISOString() : null,
+    })
+    .eq("id", input.studentId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/follow-up");
+  revalidatePath("/roster");
+  return { error: null };
 }

@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ClassHistory } from "@/components/class-history";
-import { EnrollmentSelect } from "@/components/enrollment-select";
-import { StudentWorkspace, type LevelProgress } from "@/components/student-workspace";
+import { ClassHistory } from "@/components/students/class-history";
+import { EnrollmentSelect } from "@/components/students/enrollment-select";
+import {
+  StudentWorkspace,
+  type LevelProgress,
+} from "@/components/students/student-workspace";
 import {
   getLevels,
   getPrograms,
@@ -13,6 +16,7 @@ import type { Status } from "@/lib/status";
 import { one, type Level, type Program } from "@/lib/types";
 import { createClient } from "@/utils/supabase/server";
 import { setStudentActive } from "../../roster/actions";
+import { buttonClass } from "@/components/ui/button";
 
 /**
  * Focus mode: one student, isolated from the roster.
@@ -22,7 +26,9 @@ import { setStudentActive } from "../../roster/actions";
  * of the class visible on screen. It is a view for a signed-in coach, not a
  * parent login.
  */
-export default async function StudentPage({ params }: PageProps<"/students/[id]">) {
+export default async function StudentPage({
+  params,
+}: PageProps<"/students/[id]">) {
   const { id } = await params;
   const supabase = await createClient();
 
@@ -45,8 +51,9 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
       program: one<Program>(entry.program as never),
       level: one<Level>(entry.level as never),
     }))
-    .filter((entry): entry is { program: Program; level: Level | null } =>
-      entry.program !== null,
+    .filter(
+      (entry): entry is { program: Program; level: Level | null } =>
+        entry.program !== null,
     )
     .sort((a, b) => a.program.sort_order - b.program.sort_order);
 
@@ -73,11 +80,14 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
       byLevel.set(level.id, {
         level,
         programName:
-          programs.find((program) => program.id === level.program_id)?.name ?? "",
+          programs.find((program) => program.id === level.program_id)?.name ??
+          "",
         rows: [],
       });
     }
-    byLevel.get(level.id)!.rows.push({ topic: row.topic, status: row.status as Status });
+    byLevel
+      .get(level.id)!
+      .rows.push({ topic: row.topic, status: row.status as Status });
   }
 
   for (const entry of byLevel.values()) {
@@ -95,7 +105,10 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
-      <Link href="/roster" className="text-sm text-muted-foreground hover:underline">
+      <Link
+        href="/roster"
+        className="text-sm text-muted-foreground hover:underline"
+      >
         ← Roster
       </Link>
 
@@ -117,7 +130,8 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
               program={program}
               levels={levels.filter((level) => level.program_id === program.id)}
               currentLevelId={
-                enrollments.find((e) => e.program.id === program.id)?.level?.id ?? null
+                enrollments.find((e) => e.program.id === program.id)?.level
+                  ?.id ?? null
               }
             />
           ))}
@@ -128,11 +142,7 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
               name="is_active"
               value={student.is_active ? "false" : "true"}
             />
-            <button
-              type="submit"
-              className="h-9 cursor-pointer rounded-md border border-border px-3 text-sm
-                         text-muted-foreground transition-colors duration-200 hover:bg-muted"
-            >
+            <button type="submit" className={buttonClass("secondary", "md")}>
               {student.is_active ? "Remove" : "Bring back"}
             </button>
           </form>
@@ -155,7 +165,6 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
         </div>
         <ClassHistory history={history} />
       </section>
-
     </main>
   );
 }

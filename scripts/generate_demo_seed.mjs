@@ -63,7 +63,8 @@ function id(kind) {
   return `5eed0000-0000-4000-8${KIND[kind]}-${String(counters[kind]).padStart(12, "0")}`;
 }
 
-const q = (v) => (v === null || v === undefined ? "null" : `'${String(v).replace(/'/g, "''")}'`);
+const q = (v) =>
+  v === null || v === undefined ? "null" : `'${String(v).replace(/'/g, "''")}'`;
 
 // ---------------------------------------------------------------------------
 // The curriculum. Levels 1-3 are the centre's own, verbatim. Level 4 is
@@ -71,51 +72,202 @@ const q = (v) => (v === null || v === undefined ? "null" : `'${String(v).replace
 // there is nothing real to copy.
 // ---------------------------------------------------------------------------
 const CHESS = {
-  1: ["Center", "Development", "Castling", "Pawn Shield", "Checkmate Patterns",
-      "Check/Checkmate/Stalemate", "Targets", "Scholar", "Safe Squares",
-      "Adding Attackers", "Defensive Moves", "Fencing", "Trades and Exchanges",
-      "Move Recognition", "Promotion", "En Passant"],
-  2: ["Piece Relationships", "Forks", "Pins", "Skewers", "Discovery", "Batteries",
-      "K+1P", "King in the Endgame", "Basic Opening Concepts",
-      "Responding to Opening Errors", "Trading When Winning",
-      "Middle Game Transition", "QK Checkmate", "Checklist of Moves",
-      "Backrank Checkmate", "KR Checkmate", "Notation",
-      "Understanding Opponent Moves", "Attacking the King", "Improving Pieces",
-      "Checkmate Patterns", "Draws"],
-  3: ["Combinations", "Basic Openings Database", "Interference", "Attraction",
-      "Deflection", "X-Ray", "Overload", "In-Between Move", "Winning Endgames",
-      "Passed Pawns", "KBB Checkmate", "King and Edgepawn", "Pawn Breakthroughs",
-      "Candidate Moves", "Middle Game Mating", "Forcing draws",
-      "Advanced Mating Patterns", "Clock Management", "Opposite Side Castling",
-      "Remove the Defender"],
-  4: ["Annotating Your Own Games", "Identifying Critical Moments",
-      "Post-Mortem Analysis", "Engine-Assisted Review", "Classical Game Study",
-      "Building a Study Plan", "Endgame Technique Review",
-      "Time Management Review", "Opening Repertoire", "Tournament Preparation",
-      "Calculation Under Pressure", "Playing Out Difficult Positions"],
+  1: [
+    "Center",
+    "Development",
+    "Castling",
+    "Pawn Shield",
+    "Checkmate Patterns",
+    "Check/Checkmate/Stalemate",
+    "Targets",
+    "Scholar",
+    "Safe Squares",
+    "Adding Attackers",
+    "Defensive Moves",
+    "Fencing",
+    "Trades and Exchanges",
+    "Move Recognition",
+    "Promotion",
+    "En Passant",
+  ],
+  2: [
+    "Piece Relationships",
+    "Forks",
+    "Pins",
+    "Skewers",
+    "Discovery",
+    "Batteries",
+    "K+1P",
+    "King in the Endgame",
+    "Basic Opening Concepts",
+    "Responding to Opening Errors",
+    "Trading When Winning",
+    "Middle Game Transition",
+    "QK Checkmate",
+    "Checklist of Moves",
+    "Backrank Checkmate",
+    "KR Checkmate",
+    "Notation",
+    "Understanding Opponent Moves",
+    "Attacking the King",
+    "Improving Pieces",
+    "Checkmate Patterns",
+    "Draws",
+  ],
+  3: [
+    "Combinations",
+    "Basic Openings Database",
+    "Interference",
+    "Attraction",
+    "Deflection",
+    "X-Ray",
+    "Overload",
+    "In-Between Move",
+    "Winning Endgames",
+    "Passed Pawns",
+    "KBB Checkmate",
+    "King and Edgepawn",
+    "Pawn Breakthroughs",
+    "Candidate Moves",
+    "Middle Game Mating",
+    "Forcing draws",
+    "Advanced Mating Patterns",
+    "Clock Management",
+    "Opposite Side Castling",
+    "Remove the Defender",
+  ],
+  4: [
+    "Annotating Your Own Games",
+    "Identifying Critical Moments",
+    "Post-Mortem Analysis",
+    "Engine-Assisted Review",
+    "Classical Game Study",
+    "Building a Study Plan",
+    "Endgame Technique Review",
+    "Time Management Review",
+    "Opening Repertoire",
+    "Tournament Preparation",
+    "Calculation Under Pressure",
+    "Playing Out Difficult Positions",
+  ],
 };
 
 // A second programme, to show the app is not chess-shaped.
 const CODING = {
-  1: ["Sequencing", "Loops", "Conditionals", "Variables", "Events",
-      "Debugging Basics", "Sprites and Motion", "Simple Games"],
-  2: ["Functions", "Lists and Arrays", "Nested Loops", "Input Validation",
-      "Working with Files", "Simple Algorithms", "Reading Error Messages",
-      "Building a Project"],
+  1: [
+    "Sequencing",
+    "Loops",
+    "Conditionals",
+    "Variables",
+    "Events",
+    "Debugging Basics",
+    "Sprites and Motion",
+    "Simple Games",
+  ],
+  2: [
+    "Functions",
+    "Lists and Arrays",
+    "Nested Loops",
+    "Input Validation",
+    "Working with Files",
+    "Simple Algorithms",
+    "Reading Error Messages",
+    "Building a Project",
+  ],
 };
 
-const FIRST = ["Maya", "Devon", "Aisha", "Leo", "Chen", "Priya", "Sam", "Tomas",
-  "Ruth", "Noor", "Felix", "Ines", "Kofi", "Lena", "Omar", "Yuki", "Ada",
-  "Bruno", "Clara", "Diego", "Elif", "Farid", "Greta", "Hugo", "Iris", "Jonas",
-  "Kira", "Luca", "Mira", "Nils", "Oona", "Pablo", "Quinn", "Rosa", "Stefan",
-  "Tara", "Umar", "Vera", "Wren", "Xavi", "Yara", "Zane", "Anika", "Ben",
-  "Cato", "Dara", "Emre", "Fiona", "Gus", "Hana"];
-const LAST = ["Fitzgerald", "Park", "Rahman", "Marquez", "Wei", "Nair",
-  "O'Connor", "Vidal", "Okafor", "Haddad", "Berg", "Silva", "Mensah", "Kaur",
-  "Nowak", "Tanaka", "Lindqvist", "Moreau", "Vargas", "Petrov", "Ellis",
-  "Abadi", "Novak", "Reyes", "Ibrahim", "Sorensen", "Duarte", "Kimura"];
+const FIRST = [
+  "Maya",
+  "Devon",
+  "Aisha",
+  "Leo",
+  "Chen",
+  "Priya",
+  "Sam",
+  "Tomas",
+  "Ruth",
+  "Noor",
+  "Felix",
+  "Ines",
+  "Kofi",
+  "Lena",
+  "Omar",
+  "Yuki",
+  "Ada",
+  "Bruno",
+  "Clara",
+  "Diego",
+  "Elif",
+  "Farid",
+  "Greta",
+  "Hugo",
+  "Iris",
+  "Jonas",
+  "Kira",
+  "Luca",
+  "Mira",
+  "Nils",
+  "Oona",
+  "Pablo",
+  "Quinn",
+  "Rosa",
+  "Stefan",
+  "Tara",
+  "Umar",
+  "Vera",
+  "Wren",
+  "Xavi",
+  "Yara",
+  "Zane",
+  "Anika",
+  "Ben",
+  "Cato",
+  "Dara",
+  "Emre",
+  "Fiona",
+  "Gus",
+  "Hana",
+];
+const LAST = [
+  "Fitzgerald",
+  "Park",
+  "Rahman",
+  "Marquez",
+  "Wei",
+  "Nair",
+  "O'Connor",
+  "Vidal",
+  "Okafor",
+  "Haddad",
+  "Berg",
+  "Silva",
+  "Mensah",
+  "Kaur",
+  "Nowak",
+  "Tanaka",
+  "Lindqvist",
+  "Moreau",
+  "Vargas",
+  "Petrov",
+  "Ellis",
+  "Abadi",
+  "Novak",
+  "Reyes",
+  "Ibrahim",
+  "Sorensen",
+  "Duarte",
+  "Kimura",
+];
 
-const WEEKDAY_NAME = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const WEEKDAY_NAME = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
 
 // ---------------------------------------------------------------------------
 // Build the world
@@ -124,7 +276,13 @@ const WEEKDAY_NAME = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "F
 // deployment needs it and the teardown must not remove it. So the seed adopts
 // the existing row by name and only invents the second programme.
 const programs = [
-  { id: null, ref: "(select id from programs where name = 'Chess')", name: "Chess", sort: 1, levels: [] },
+  {
+    id: null,
+    ref: "(select id from programs where name = 'Chess')",
+    name: "Chess",
+    sort: 1,
+    levels: [],
+  },
   { id: id("program"), ref: null, name: "Coding", sort: 2, levels: [] },
 ];
 for (const program of programs) {
@@ -235,7 +393,8 @@ const sessionTopics = [];
 const sessionNotes = [];
 
 const key = (studentId, topicId) => `${studentId}:${topicId}`;
-const statusOf = (studentId, topicId) => progress.get(key(studentId, topicId)) ?? "not_seen";
+const statusOf = (studentId, topicId) =>
+  progress.get(key(studentId, topicId)) ?? "not_seen";
 
 function setStatus(studentId, topicId, to, sessionId, when) {
   const from = statusOf(studentId, topicId);
@@ -269,7 +428,13 @@ for (let weeksAgo = WEEKS; weeksAgo >= 0; weeksAgo -= 1) {
 
     const sessionId = id("session");
     const iso = when.toISOString().slice(0, 10);
-    sessions.push({ id: sessionId, date: iso, time: klass.time, series: klass, program: klass.level.program });
+    sessions.push({
+      id: sessionId,
+      date: iso,
+      time: klass.time,
+      series: klass,
+      program: klass.level.program,
+    });
 
     // Who turned up: most regulars, plus the odd drop-in from the same level.
     const present = klass.regulars.filter(() => chance(0.85));
@@ -281,7 +446,8 @@ for (let weeksAgo = WEEKS; weeksAgo >= 0; weeksAgo -= 1) {
         chance(0.06),
     );
     const room = [...present, ...dropIns];
-    for (const student of room) attendance.push({ sessionId, studentId: student.id });
+    for (const student of room)
+      attendance.push({ sessionId, studentId: student.id });
 
     // The class works forward through the curriculum over the term.
     const topics = klass.level.topics;
@@ -311,20 +477,34 @@ for (let weeksAgo = WEEKS; weeksAgo >= 0; weeksAgo -= 1) {
 
       // And a coach's judgement, on a topic that has been seen enough.
       if (chance(0.3)) {
-        const ready = topics.filter((t) => statusOf(student.id, t.id) === "seen_multiple");
+        const ready = topics.filter(
+          (t) => statusOf(student.id, t.id) === "seen_multiple",
+        );
         if (ready.length > 0) {
-          setStatus(student.id, pick(ready).id, "needs_testing", sessionId, when);
+          setStatus(
+            student.id,
+            pick(ready).id,
+            "needs_testing",
+            sessionId,
+            when,
+          );
         }
       }
       if (chance(0.35)) {
-        const testing = topics.filter((t) => statusOf(student.id, t.id) === "needs_testing");
+        const testing = topics.filter(
+          (t) => statusOf(student.id, t.id) === "needs_testing",
+        );
         if (testing.length > 0) {
           setStatus(student.id, pick(testing).id, "complete", sessionId, when);
         }
       }
 
       if (chance(0.07)) {
-        sessionNotes.push({ sessionId, studentId: student.id, text: pick(NOTES) });
+        sessionNotes.push({
+          sessionId,
+          studentId: student.id,
+          text: pick(NOTES),
+        });
       }
     }
   }
@@ -347,7 +527,9 @@ for (const student of students.filter((s) => s.active).slice(0, 60)) {
   if (!chessEnrollment || chessEnrollment.level.number < 2) continue;
   if (!chance(0.5)) continue;
 
-  const earlier = chess.levels.find((l) => l.number === chessEnrollment.level.number - 1);
+  const earlier = chess.levels.find(
+    (l) => l.number === chessEnrollment.level.number - 1,
+  );
   if (!earlier) continue;
 
   const page = {
@@ -362,7 +544,10 @@ for (const student of students.filter((s) => s.active).slice(0, 60)) {
 
   // They finished that level -- which is why they moved up.
   for (const topic of earlier.topics) {
-    progress.set(key(page.id, topic.id), chance(0.85) ? "complete" : "needs_testing");
+    progress.set(
+      key(page.id, topic.id),
+      chance(0.85) ? "complete" : "needs_testing",
+    );
   }
 
   // And they were in its class, earlier in the term than their current one.
@@ -383,16 +568,24 @@ for (const student of students.filter((s) => s.active).slice(0, 60)) {
 const out = [];
 const w = (line = "") => out.push(line);
 
-w("-- ===========================================================================");
+w(
+  "-- ===========================================================================",
+);
 w("-- DEMONSTRATION DATA — DELETE BEFORE ANY REAL IMPORT");
 w("--");
-w("-- Generated by scripts/generate_demo_seed.mjs. Do not edit by hand: change");
+w(
+  "-- Generated by scripts/generate_demo_seed.mjs. Do not edit by hand: change",
+);
 w("-- the generator and re-run it.");
 w("--");
 w("-- Every id begins '5eed0000', which is how");
-w("-- supabase/seed/999_placeholder_teardown.sql finds this data and nothing else.");
+w(
+  "-- supabase/seed/999_placeholder_teardown.sql finds this data and nothing else.",
+);
 w("--");
-w("-- NO REAL CHILD APPEARS HERE. Every name is generated. The only thing taken");
+w(
+  "-- NO REAL CHILD APPEARS HERE. Every name is generated. The only thing taken",
+);
 w("-- from the centre is the chess curriculum for levels 1-3, which is not");
 w("-- personal data. Level 4's topics are invented -- their own system holds");
 w("-- twelve unnamed placeholder slots, so there was nothing real to copy.");
@@ -400,10 +593,16 @@ w("--");
 w("-- A term of classes is simulated in order, so the data is internally");
 w("-- consistent: a student is only ahead on topics their class actually");
 w("-- covered, and the history explains the grid.");
-w(`-- ${students.length} students · ${progress.size} progress rows · ${sessions.length} classes · ${events.length} history entries`);
-w(`-- Including ${legacyPages.length} children who left an older page behind on a level they`);
+w(
+  `-- ${students.length} students · ${progress.size} progress rows · ${sessions.length} classes · ${events.length} history entries`,
+);
+w(
+  `-- Including ${legacyPages.length} children who left an older page behind on a level they`,
+);
 w("-- finished, so the tidy-up screen has something real to work through.");
-w("-- ===========================================================================");
+w(
+  "-- ===========================================================================",
+);
 w();
 w("begin;");
 w();
@@ -414,19 +613,27 @@ w("set local session_replication_role = replica;");
 w();
 
 w("-- Programmes -----------------------------------------------------------");
-w("-- Chess already exists (migration 0010); only the second one is demo data.");
+w(
+  "-- Chess already exists (migration 0010); only the second one is demo data.",
+);
 for (const program of programs) {
   if (program.id === null) continue;
-  w(`insert into programs (id, name, sort_order) values (${q(program.id)}, ${q(program.name)}, ${program.sort});`);
+  w(
+    `insert into programs (id, name, sort_order) values (${q(program.id)}, ${q(program.name)}, ${program.sort});`,
+  );
 }
 w();
 
 w("-- Levels and topics ----------------------------------------------------");
 for (const program of programs) {
   for (const level of program.levels) {
-    w(`insert into levels (id, program_id, number, name) values (${q(level.id)}, ${program.ref}, ${level.number}, ${q(level.name)});`);
+    w(
+      `insert into levels (id, program_id, number, name) values (${q(level.id)}, ${program.ref}, ${level.number}, ${q(level.name)});`,
+    );
     for (const topic of level.topics) {
-      w(`insert into topics (id, level_id, name, sort_order) values (${q(topic.id)}, ${q(level.id)}, ${q(topic.name)}, ${topic.sort});`);
+      w(
+        `insert into topics (id, level_id, name, sort_order) values (${q(topic.id)}, ${q(level.id)}, ${q(topic.name)}, ${topic.sort});`,
+      );
     }
   }
 }
@@ -434,9 +641,13 @@ w();
 
 w("-- Students and enrollments ---------------------------------------------");
 for (const student of students) {
-  w(`insert into students (id, full_name, is_active) values (${q(student.id)}, ${q(student.name)}, ${student.active});`);
+  w(
+    `insert into students (id, full_name, is_active) values (${q(student.id)}, ${q(student.name)}, ${student.active});`,
+  );
   for (const enrollment of student.enrollments) {
-    w(`insert into enrollments (student_id, program_id, level_id) values (${q(student.id)}, ${enrollment.program.ref}, ${q(enrollment.level.id)});`);
+    w(
+      `insert into enrollments (student_id, program_id, level_id) values (${q(student.id)}, ${enrollment.program.ref}, ${q(enrollment.level.id)});`,
+    );
   }
 }
 w();
@@ -444,7 +655,9 @@ w();
 w("-- Where the term left everyone -----------------------------------------");
 for (const [cell, status] of progress) {
   const [studentId, topicId] = cell.split(":");
-  w(`insert into progress (student_id, topic_id, status) values (${q(studentId)}, ${q(topicId)}, ${q(status)});`);
+  w(
+    `insert into progress (student_id, topic_id, status) values (${q(studentId)}, ${q(topicId)}, ${q(status)});`,
+  );
 }
 w();
 
@@ -456,7 +669,9 @@ for (const klass of series) {
       `(${q(klass.id)}, ${q(klass.name)}, array[${klass.weekday}], ${q(klass.time)}, ${q(start)}, ${klass.level.program.ref});`,
   );
   for (const student of klass.regulars) {
-    w(`insert into class_regulars (series_id, student_id) values (${q(klass.id)}, ${q(student.id)});`);
+    w(
+      `insert into class_regulars (series_id, student_id) values (${q(klass.id)}, ${q(student.id)});`,
+    );
   }
 }
 w();
@@ -469,13 +684,19 @@ for (const session of sessions) {
   );
 }
 for (const row of sessionTopics) {
-  w(`insert into session_topics (session_id, topic_id) values (${q(row.sessionId)}, ${q(row.topicId)});`);
+  w(
+    `insert into session_topics (session_id, topic_id) values (${q(row.sessionId)}, ${q(row.topicId)});`,
+  );
 }
 for (const row of attendance) {
-  w(`insert into attendance (session_id, student_id) values (${q(row.sessionId)}, ${q(row.studentId)});`);
+  w(
+    `insert into attendance (session_id, student_id) values (${q(row.sessionId)}, ${q(row.studentId)});`,
+  );
 }
 for (const row of sessionNotes) {
-  w(`insert into session_notes (session_id, student_id, note_text) values (${q(row.sessionId)}, ${q(row.studentId)}, ${q(row.text)});`);
+  w(
+    `insert into session_notes (session_id, student_id, note_text) values (${q(row.sessionId)}, ${q(row.studentId)}, ${q(row.text)});`,
+  );
 }
 w();
 
@@ -491,7 +712,9 @@ w();
 w("-- Triggers back on, then the blanks ------------------------------------");
 w("set local session_replication_role = origin;");
 w();
-w("-- A blank row for every topic nobody has touched yet, so each grid renders");
+w(
+  "-- A blank row for every topic nobody has touched yet, so each grid renders",
+);
 w("-- a full row. This writes no history: a blank is the absence of it.");
 w("select public.ensure_progress_rows(id) from students;");
 w("");
@@ -505,12 +728,20 @@ w("commit;");
 fs.writeFileSync(OUT, out.join("\n") + "\n", "utf8");
 
 console.log(`students          ${students.length}`);
-console.log(`  older pages     ${legacyPages.length}  (for the tidy-up screen)`);
-console.log(`  also coding     ${students.filter((s) => s.enrollments.length > 1).length}`);
-console.log(`progress rows     ${progress.size}  (before blanks are filled in)`);
+console.log(
+  `  older pages     ${legacyPages.length}  (for the tidy-up screen)`,
+);
+console.log(
+  `  also coding     ${students.filter((s) => s.enrollments.length > 1).length}`,
+);
+console.log(
+  `progress rows     ${progress.size}  (before blanks are filled in)`,
+);
 console.log(`classes           ${sessions.length}`);
 console.log(`attendance        ${attendance.length}`);
 console.log(`topics covered    ${sessionTopics.length}`);
 console.log(`history entries   ${events.length}`);
 console.log(`session notes     ${sessionNotes.length}`);
-console.log(`\nwritten to supabase/seed/001_placeholder_seed.sql (${out.length} lines)`);
+console.log(
+  `\nwritten to supabase/seed/001_placeholder_seed.sql (${out.length} lines)`,
+);

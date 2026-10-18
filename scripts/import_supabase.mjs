@@ -65,11 +65,19 @@ const WEEKDAY = {
 };
 
 // Rows whose "name" is clearly an artefact of the spreadsheet this came from.
-const JUNK_NAMES = new Set(["student list", "copypasta", "copy paste", "test", "vanilla"]);
+const JUNK_NAMES = new Set([
+  "student list",
+  "copypasta",
+  "copy paste",
+  "test",
+  "vanilla",
+]);
 
 function env() {
   const out = {};
-  for (const line of fs.readFileSync(path.join(REPO, ".env.local"), "utf8").split(/\r?\n/)) {
+  for (const line of fs
+    .readFileSync(path.join(REPO, ".env.local"), "utf8")
+    .split(/\r?\n/)) {
     const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)$/);
     if (m) out[m[1]] = m[2].trim().replace(/^["']|["']$/g, "");
   }
@@ -119,7 +127,11 @@ function loadRoster(file) {
     });
 }
 
-const normalise = (name) => String(name ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+const normalise = (name) =>
+  String(name ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
 
 /**
  * Match one of their pages to a real child.
@@ -140,7 +152,8 @@ function resolveName(pageName, roster) {
   const initial = name.match(/^(\S+)\s+([a-z])$/);
   if (initial) {
     const hits = roster.filter(
-      (entry) => entry.first === initial[1] && entry.last.startsWith(initial[2]),
+      (entry) =>
+        entry.first === initial[1] && entry.last.startsWith(initial[2]),
     );
     if (hits.length === 1) return hits[0].full;
   }
@@ -158,10 +171,14 @@ function resolveName(pageName, roster) {
 async function all(pathAndQuery) {
   const rows = [];
   for (let from = 0; ; from += 1000) {
-    const res = await fetch(`${ENV.THEIR_SUPABASE_URL}/rest/v1/${pathAndQuery}`, {
-      headers: { ...headers, Range: `${from}-${from + 999}` },
-    });
-    if (!res.ok) throw new Error(`${pathAndQuery}: ${res.status} ${await res.text()}`);
+    const res = await fetch(
+      `${ENV.THEIR_SUPABASE_URL}/rest/v1/${pathAndQuery}`,
+      {
+        headers: { ...headers, Range: `${from}-${from + 999}` },
+      },
+    );
+    if (!res.ok)
+      throw new Error(`${pathAndQuery}: ${res.status} ${await res.text()}`);
     const batch = await res.json();
     rows.push(...batch);
     if (batch.length < 1000) return rows;
@@ -169,11 +186,16 @@ async function all(pathAndQuery) {
 }
 
 const q = (value) =>
-  value === null || value === undefined ? "null" : `'${String(value).replace(/'/g, "''")}'`;
+  value === null || value === undefined
+    ? "null"
+    : `'${String(value).replace(/'/g, "''")}'`;
 
 /** Their levels are integers; ours are UUIDs. Derive one, stably. */
 const levelUuid = (levelId) => {
-  const hash = crypto.createHash("sha1").update(`level:${levelId}`).digest("hex");
+  const hash = crypto
+    .createHash("sha1")
+    .update(`level:${levelId}`)
+    .digest("hex");
   return [
     hash.slice(0, 8),
     hash.slice(8, 12),
@@ -185,7 +207,9 @@ const levelUuid = (levelId) => {
 
 /** '6:00 PM' -> '18:00'. Returns null for anything unparseable. */
 function toTime(text) {
-  const m = String(text ?? "").trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  const m = String(text ?? "")
+    .trim()
+    .match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
   if (!m) return null;
   let hour = Number(m[1]) % 12;
   if (m[3].toUpperCase() === "PM") hour += 12;
@@ -200,7 +224,9 @@ async function main() {
       all("levels?select=*&order=level_number"),
       all("topics?select=*&order=level_id,sort_order"),
       all("students?select=*"),
-      all("student_topic_mastery?select=student_id,topic_id,status,notes,last_updated"),
+      all(
+        "student_topic_mastery?select=student_id,topic_id,status,notes,last_updated",
+      ),
       all("classes?select=*"),
       all("class_sessions?select=*"),
       all("attendance?select=*"),
@@ -220,12 +246,17 @@ async function main() {
   const classById = new Map(classes.map((c) => [c.id, c]));
 
   // ---- what will not come across, and why --------------------------------
-  const junk = students.filter((s) => JUNK_NAMES.has((s.name ?? "").trim().toLowerCase()));
+  const junk = students.filter((s) =>
+    JUNK_NAMES.has((s.name ?? "").trim().toLowerCase()),
+  );
   const unnamed = students.filter((s) => !(s.name ?? "").trim());
   const skipStudent = new Set([...junk, ...unnamed].map((s) => s.id));
 
   const orphanMastery = mastery.filter(
-    (m) => !topicIds.has(m.topic_id) || !studentIds.has(m.student_id) || skipStudent.has(m.student_id),
+    (m) =>
+      !topicIds.has(m.topic_id) ||
+      !studentIds.has(m.student_id) ||
+      skipStudent.has(m.student_id),
   );
   const unknownStatus = mastery.filter((m) => !STATUS[m.status]);
 
@@ -236,7 +267,9 @@ async function main() {
   // up, and mint a session for any attendance whose class meeting was never
   // recorded -- otherwise those children silently vanish from the record.
   const sessionKey = (classId, date) => `${classId}|${date}`;
-  const sessionByKey = new Map(sessions.map((s) => [sessionKey(s.class_id, s.date), s]));
+  const sessionByKey = new Map(
+    sessions.map((s) => [sessionKey(s.class_id, s.date), s]),
+  );
   const inventedSessions = [];
 
   for (const row of attendance) {
@@ -261,7 +294,9 @@ async function main() {
 
   const allSessions = [...sessionByKey.values()];
   const droppedAttendance = attendance.filter(
-    (row) => !sessionByKey.has(sessionKey(row.class_id, row.date)) || !studentIds.has(row.student_id),
+    (row) =>
+      !sessionByKey.has(sessionKey(row.class_id, row.date)) ||
+      !studentIds.has(row.student_id),
   );
 
   // Regulars: their primary_class_id is an array of the classes a student
@@ -270,18 +305,19 @@ async function main() {
   for (const student of students) {
     if (skipStudent.has(student.id)) continue;
     for (const classId of student.primary_class_id ?? []) {
-      if (classById.has(classId)) regulars.push({ classId, studentId: student.id });
+      if (classById.has(classId))
+        regulars.push({ classId, studentId: student.id });
     }
   }
 
-  const duplicateNames = [...
-    students
+  const duplicateNames = [
+    ...students
       .filter((s) => !skipStudent.has(s.id))
       .reduce((map, s) => {
         const key = (s.name ?? "").trim().toLowerCase();
         map.set(key, (map.get(key) ?? 0) + 1);
         return map;
-      }, new Map())
+      }, new Map()),
   ].filter(([, n]) => n > 1);
 
   // ---- the report --------------------------------------------------------
@@ -296,18 +332,35 @@ async function main() {
     { table: "levels", rows: levels.length },
     { table: "topics", rows: topics.length },
     { table: "students", rows: students.length - skipStudent.size },
-    { table: "enrollments", rows: students.filter((s) => !skipStudent.has(s.id) && s.current_level_id).length },
-    { table: "progress", rows: mastery.length - orphanMastery.length - unknownStatus.length },
-    { table: "class_series", rows: classes.length - badTimes.length - badDays.length },
+    {
+      table: "enrollments",
+      rows: students.filter((s) => !skipStudent.has(s.id) && s.current_level_id)
+        .length,
+    },
+    {
+      table: "progress",
+      rows: mastery.length - orphanMastery.length - unknownStatus.length,
+    },
+    {
+      table: "class_series",
+      rows: classes.length - badTimes.length - badDays.length,
+    },
     { table: "class_regulars", rows: regulars.length },
     { table: "sessions", rows: allSessions.length },
-    { table: "session_topics", rows: allSessions.reduce((n, s) => n + (s.topics_covered ?? []).length, 0) },
+    {
+      table: "session_topics",
+      rows: allSessions.reduce(
+        (n, s) => n + (s.topics_covered ?? []).length,
+        0,
+      ),
+    },
     { table: "attendance", rows: attendance.length - droppedAttendance.length },
   ]);
 
   console.log("  status mapping:");
   const statusCounts = new Map();
-  for (const m of mastery) statusCounts.set(m.status, (statusCounts.get(m.status) ?? 0) + 1);
+  for (const m of mastery)
+    statusCounts.set(m.status, (statusCounts.get(m.status) ?? 0) + 1);
   console.table(
     [...statusCounts.entries()].map(([theirs, rows]) => ({
       theirs,
@@ -321,13 +374,19 @@ async function main() {
     ["participants", "3 rows — a newer table this app has no equivalent for"],
     ["payments", "0 rows — out of scope"],
     ["student_notes", "0 rows — per-topic notes, no equivalent yet"],
-    ["attendance.drop_in", `${attendance.filter((a) => a.drop_in).length} flagged — the star on a class carries this instead`],
+    [
+      "attendance.drop_in",
+      `${attendance.filter((a) => a.drop_in).length} flagged — the star on a class carries this instead`,
+    ],
   ];
-  for (const [what, why] of skipped) console.log(`    ${what.padEnd(22)} ${why}`);
+  for (const [what, why] of skipped)
+    console.log(`    ${what.padEnd(22)} ${why}`);
   console.log();
 
   if (junk.length || unnamed.length) {
-    console.log(`  ! ${junk.length + unnamed.length} student rows skipped as artefacts:`);
+    console.log(
+      `  ! ${junk.length + unnamed.length} student rows skipped as artefacts:`,
+    );
     for (const s of [...junk, ...unnamed].slice(0, 8)) {
       console.log(`      ${JSON.stringify(s.name)}  (${s.id})`);
     }
@@ -335,25 +394,37 @@ async function main() {
   }
 
   if (orphanMastery.length || unknownStatus.length) {
-    console.log(`  ! ${orphanMastery.length} progress rows point at a student or topic that`);
-    console.log(`    no longer exists; ${unknownStatus.length} carry a status with no mapping.`);
+    console.log(
+      `  ! ${orphanMastery.length} progress rows point at a student or topic that`,
+    );
+    console.log(
+      `    no longer exists; ${unknownStatus.length} carry a status with no mapping.`,
+    );
     console.log();
   }
 
   if (inventedSessions.length) {
-    console.log(`  ! ${inventedSessions.length} classes existed only in the attendance table —`);
-    console.log("    somebody was marked present on a day with no class recorded.");
+    console.log(
+      `  ! ${inventedSessions.length} classes existed only in the attendance table —`,
+    );
+    console.log(
+      "    somebody was marked present on a day with no class recorded.",
+    );
     console.log("    A session is created for each so nobody is lost.");
     console.log();
   }
 
   if (droppedAttendance.length) {
-    console.log(`  ! ${droppedAttendance.length} attendance rows dropped (unknown student or class).`);
+    console.log(
+      `  ! ${droppedAttendance.length} attendance rows dropped (unknown student or class).`,
+    );
     console.log();
   }
 
   if (badTimes.length || badDays.length) {
-    console.log(`  ! ${badTimes.length} classes have an unreadable time, ${badDays.length} an unreadable day.`);
+    console.log(
+      `  ! ${badTimes.length} classes have an unreadable time, ${badDays.length} an unreadable day.`,
+    );
     console.log();
   }
 
@@ -369,20 +440,29 @@ async function main() {
     console.log(`    pages given a proper name        ${resolved.size}`);
     console.log(`    distinct children recognised     ${people.size}`);
     console.log(`    children split across pages      ${split.length}`);
-    console.log("    -> these are the strongest merge candidates, and the tool");
+    console.log(
+      "    -> these are the strongest merge candidates, and the tool",
+    );
     console.log("       will pre-fill the name so they only need confirming:");
     for (const [full, pages] of split.slice(0, 8)) {
       console.log(`         ${full} (${pages.length} pages)`);
     }
-    if (split.length > 8) console.log(`         … and ${split.length - 8} more`);
-    console.log("    Nobody is deactivated by this list -- Brad says it misses");
+    if (split.length > 8)
+      console.log(`         … and ${split.length - 8} more`);
+    console.log(
+      "    Nobody is deactivated by this list -- Brad says it misses",
+    );
     console.log("    anyone paying another way, and every drop-in.");
     console.log();
   }
 
   console.log(`  duplicate names: ${duplicateNames.length}`);
-  console.log("    Their ids keep these apart, so the import is safe — but the");
-  console.log("    coaches will see repeated names in a list and should rename them.");
+  console.log(
+    "    Their ids keep these apart, so the import is safe — but the",
+  );
+  console.log(
+    "    coaches will see repeated names in a list and should rename them.",
+  );
   console.log(
     "    " +
       duplicateNames
@@ -402,23 +482,31 @@ async function main() {
   w("--");
   w("-- Apply with:  node scripts/apply-sql.mjs supabase/import/real_data.sql");
   w("--");
-  w("-- Intended for a database that has had supabase/seed/999_placeholder_teardown.sql");
+  w(
+    "-- Intended for a database that has had supabase/seed/999_placeholder_teardown.sql",
+  );
   w("-- run against it, or one that never had the demo data at all.");
   w("");
   w("begin;");
   w("");
   w("-- Triggers off while loading. The blank-row trigger would race the real");
   w("-- statuses being inserted, and the history trigger would write 7000");
-  w("-- events all stamped with the moment of the import, which is not history.");
+  w(
+    "-- events all stamped with the moment of the import, which is not history.",
+  );
   w("set local session_replication_role = replica;");
   w("");
 
-  w("-- Programme ------------------------------------------------------------");
+  w(
+    "-- Programme ------------------------------------------------------------",
+  );
   w("insert into programs (name, sort_order) values ('Chess', 1)");
   w("  on conflict (name) do nothing;");
   w("");
 
-  w("-- Levels ---------------------------------------------------------------");
+  w(
+    "-- Levels ---------------------------------------------------------------",
+  );
   for (const level of levels) {
     w(
       `insert into levels (id, program_id, number, name) ` +
@@ -429,7 +517,9 @@ async function main() {
   }
   w("");
 
-  w("-- Topics ---------------------------------------------------------------");
+  w(
+    "-- Topics ---------------------------------------------------------------",
+  );
   for (const topic of topics) {
     w(
       `insert into topics (id, level_id, name, sort_order) values ` +
@@ -439,7 +529,9 @@ async function main() {
   }
   w("");
 
-  w("-- Students and their enrollment ----------------------------------------");
+  w(
+    "-- Students and their enrollment ----------------------------------------",
+  );
   for (const student of students) {
     if (skipStudent.has(student.id)) continue;
     w(
@@ -457,7 +549,9 @@ async function main() {
   }
   w("");
 
-  w("-- Progress -------------------------------------------------------------");
+  w(
+    "-- Progress -------------------------------------------------------------",
+  );
   const skipMastery = new Set(orphanMastery.concat(unknownStatus));
   for (const row of mastery) {
     if (skipMastery.has(row)) continue;
@@ -470,7 +564,9 @@ async function main() {
   }
   w("");
 
-  w("-- Repeating classes ----------------------------------------------------");
+  w(
+    "-- Repeating classes ----------------------------------------------------",
+  );
   const seriesId = new Map();
   for (const klass of classes) {
     const time = toTime(klass.time);
@@ -494,7 +590,9 @@ async function main() {
   }
   w("");
 
-  w("-- Regulars (their primary_class_id) ------------------------------------");
+  w(
+    "-- Regulars (their primary_class_id) ------------------------------------",
+  );
   for (const { classId, studentId } of regulars) {
     if (!seriesId.has(classId)) continue;
     w(
@@ -504,11 +602,15 @@ async function main() {
   }
   w("");
 
-  w("-- Classes that happened ------------------------------------------------");
+  w(
+    "-- Classes that happened ------------------------------------------------",
+  );
   for (const session of allSessions) {
     const klass = classById.get(session.class_id);
     const time = klass ? toTime(klass.time) : null;
-    const series = seriesId.has(session.class_id) ? `'${session.class_id}'` : "null";
+    const series = seriesId.has(session.class_id)
+      ? `'${session.class_id}'`
+      : "null";
     w(
       `insert into sessions (id, session_date, session_time, series_id, program_id, notes) ` +
         `select '${session.id}', ${q(session.date)}, ${time ? q(time) : "null"}, ${series}, id, ` +
@@ -525,11 +627,18 @@ async function main() {
   }
   w("");
 
-  w("-- Attendance -----------------------------------------------------------");
+  w(
+    "-- Attendance -----------------------------------------------------------",
+  );
   const seenAttendance = new Set();
   for (const row of attendance) {
     const session = sessionByKey.get(sessionKey(row.class_id, row.date));
-    if (!session || !studentIds.has(row.student_id) || skipStudent.has(row.student_id)) continue;
+    if (
+      !session ||
+      !studentIds.has(row.student_id) ||
+      skipStudent.has(row.student_id)
+    )
+      continue;
     const key = `${session.id}|${row.student_id}`;
     if (seenAttendance.has(key)) continue;
     seenAttendance.add(key);
@@ -540,7 +649,9 @@ async function main() {
   }
   w("");
 
-  w("-- Triggers back on, then fill in the blanks ----------------------------");
+  w(
+    "-- Triggers back on, then fill in the blanks ----------------------------",
+  );
   w("set local session_replication_role = origin;");
   w("");
   w("-- Every enrolled student gets a blank row for any topic in their level");
@@ -562,7 +673,9 @@ async function main() {
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
   fs.writeFileSync(OUT, sql.join("\n"), "utf8");
 
-  console.log(`  SQL written to supabase/import/real_data.sql (${sql.length} statements)`);
+  console.log(
+    `  SQL written to supabase/import/real_data.sql (${sql.length} statements)`,
+  );
   console.log("  Nothing is live until you run:");
   console.log("    node scripts/apply-sql.mjs supabase/import/real_data.sql");
   console.log(line);

@@ -1,5 +1,7 @@
 # Chess Progress
 
+[![CI](https://github.com/NikhilGG123/chess-progress/actions/workflows/ci.yml/badge.svg)](https://github.com/NikhilGG123/chess-progress/actions/workflows/ci.yml)
+
 **Student progress tracking for a chess academy** — replacing the shared
 spreadsheet three coaches ran their classes from.
 
@@ -27,8 +29,8 @@ new tab**, and their old one stayed behind. After years of this, one child
 could be three separate records, filed under "Rohan", "Rohan M" and "Rohan
 Mistry", because for a long time only first names were written down.
 
-Nothing in that workbook could answer *what should I teach this child next?*
-without a coach reading across three tabs mid-lesson.
+Nothing in that workbook could answer *where does this child stand?* without
+a coach reading across three tabs mid-lesson.
 
 ---
 
@@ -151,7 +153,7 @@ academy's instance — Vercel's free tier excludes commercial use). A nightly
 **GitHub Action** takes a backup and keeps the class calendar generated eight
 weeks ahead.
 
-Schema, policies and functions are sixteen plain SQL migrations in
+Schema, policies and functions are eighteen plain SQL migrations in
 `supabase/migrations/`, applied by hand and in order.
 
 ---
@@ -175,8 +177,10 @@ and given a row in `coaches`.
 | --- | --- |
 | `npm run dev` | development server |
 | `npm run build` | production build, including a full type check |
-| `npm test` | 57 tests — unit, plus database tests when `.env.local` has credentials |
+| `npm test` | 65 tests — unit, plus database tests when `.env.local` has credentials |
 | `npm run lint` | ESLint |
+| `npm run typecheck` | TypeScript alone, without a build |
+| `npm run format` | Prettier; `format:check` is what CI runs |
 | `node scripts/generate_demo_seed.mjs` | regenerate the demo data |
 | `node scripts/backup.mjs` | snapshot every table to `backups/` |
 | `node scripts/check-names.mjs` | fail if a real student's name reached a tracked file |
@@ -193,7 +197,14 @@ teardown script finds it and nothing else.
 ```
 app/(app)/          signed-in pages; the route group carries the nav shell
 app/login/          the only page outside it
-components/         client components — grids, pickers, forms, realtime
+components/         grouped by the part of the app they serve
+  sessions/         a class: check-in, the grid, notes, the calendar
+  students/         the roster, a student's record, merging duplicates
+  curriculum/       programmes, levels and topics
+  progress/         the mark picker and legend, shared by both grids
+  admin/            the backup button
+  layout/  ui/      the header shell, and generic building blocks
+hooks/              realtime, the coach's local date, remembered toggles
 lib/
   status.ts         the five marks, and what may follow what
   queries.ts        every read. Pages explicitly, because the API

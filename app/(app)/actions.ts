@@ -42,6 +42,7 @@ export async function setProgress(input: {
   return { error: error?.message ?? null };
 }
 
+/** Check one student in to a class, or back out of it. */
 export async function setAttendance(input: {
   sessionId: string;
   studentId: string;
@@ -189,6 +190,10 @@ export async function advanceSession(
   return { error: null, changed: (data as number) ?? 0 };
 }
 
+/**
+ * Save a coach's free-text note about one student in one class. One note per
+ * pair, overwritten in place; the page autosaves, so this runs often.
+ */
 export async function saveNote(input: {
   sessionId: string;
   studentId: string;

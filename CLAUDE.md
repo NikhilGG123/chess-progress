@@ -138,9 +138,12 @@ students ─┬─ enrollments ─────┘
   never produces `needs_testing` or `complete`. Attending a lesson is evidence a
   student *saw* something; it is not evidence they understood it. Eight tests
   hold this.
-- **Suggested lesson** is the first topic in the level's order that is not
-  `complete`. A plain rule on purpose: a coach glances at it mid-lesson, and if
-  they cannot predict what it will say they stop trusting it.
+- **There is no suggested lesson, deliberately.** The app used to name each
+  student's "next" topic -- the first in the level not yet complete. Nikhil,
+  2026-09-04: "the order of the topics isn't gonna be a single set order... it's
+  up to a coach's discretion". `topics.sort_order` is a display order, not a
+  teaching sequence, so that feature was inventing one. A session-level
+  suggestion based on who turned up was considered and dropped with it.
 - **`generate_all_series(through)`** keeps every active class materialised some
   weeks ahead, run nightly by the backup workflow. The centre's classes run
   indefinitely, and the app used to need a coach to press "Extend" -- so the
@@ -337,7 +340,7 @@ running the thing.
   key reports `SUBSCRIBED` and then silently receives nothing, because realtime
   re-checks every change against the subscriber's own policies. The session is
   recovered from cookies asynchronously, so it must be awaited before
-  subscribing — see `components/use-realtime.tsx`.
+  subscribing — see `hooks/use-realtime.tsx`.
 - **RLS does not raise on a forbidden DELETE**, it matches zero rows. Code that
   only checks for an error reports success while nothing was deleted.
 - **Vercel blocks deploys whose commit email is not on a GitHub account.** This
@@ -357,7 +360,6 @@ running the thing.
 - `npm test` before committing; the database tests are safe against the live
   project because each runs in a transaction that is rolled back.
 - Commit per working change, not in one batch. Explain *why* in the message.
-- Keep the suggested-lesson rule deterministic. No ML.
 - Real student data never enters the repository: `supabase/import/` and
   `backups/` are gitignored.
 - Ask before running migrations against a database holding real data.

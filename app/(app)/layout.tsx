@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Nav } from "@/components/nav";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { Nav } from "@/components/layout/nav";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { Button } from "@/components/ui/button";
 import { currentCoach } from "@/lib/queries";
 import { logout } from "../login/actions";
 
@@ -39,13 +40,12 @@ export default async function AppLayout({
             </span>
             <ThemeToggle />
             <form action={logout}>
-              <button
-                type="submit"
-                className="h-9 cursor-pointer rounded-md border border-border-strong px-3
-                           text-sm transition-colors duration-200 hover:bg-muted"
-              >
+              {/* Ghost: signing out is not something a coach came here to
+                  do, and a bordered button beside the navigation reads as a
+                  fifth destination. */}
+              <Button type="submit" variant="ghost" size="sm">
                 Sign out
-              </button>
+              </Button>
             </form>
           </div>
         </div>
@@ -57,7 +57,9 @@ export default async function AppLayout({
       {user && error ? (
         <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-16">
           <div className="rounded-lg border border-border bg-surface-raised p-6">
-            <h1 className="text-lg font-semibold">Could not load your account</h1>
+            <h1 className="text-lg font-semibold">
+              Could not load your account
+            </h1>
             <p className="mt-2 text-sm text-muted-foreground">
               Signed in as {user.email}, but the coach lookup failed. This is a
               database problem, not a problem with your account — reload, and if
@@ -71,7 +73,9 @@ export default async function AppLayout({
       ) : user && !coach ? (
         <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-16">
           <div className="rounded-lg border border-border bg-surface-raised p-6">
-            <h1 className="text-lg font-semibold">This account is not a coach</h1>
+            <h1 className="text-lg font-semibold">
+              This account is not a coach
+            </h1>
             <p className="mt-2 text-sm text-muted-foreground">
               You are signed in as {user.email}, but there is no coach record
               for this account, so no student data can be loaded. Ask the

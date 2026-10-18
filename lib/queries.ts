@@ -50,7 +50,8 @@ async function fetchAll<T>(
  */
 function chunk<T>(items: T[], size: number): T[][] {
   const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  for (let i = 0; i < items.length; i += size)
+    out.push(items.slice(i, i + size));
   return out;
 }
 
@@ -118,16 +119,16 @@ export async function getLevelsWithTopics(): Promise<LevelWithTopics[]> {
   return (data ?? []) as LevelWithTopics[];
 }
 
-export async function getStudents(
-  { includeInactive = false } = {},
-): Promise<StudentWithEnrollments[]> {
+export async function getStudents({ includeInactive = false } = {}): Promise<
+  StudentWithEnrollments[]
+> {
   const supabase = await createClient();
 
   const rows = await fetchAll<Record<string, unknown>>((from, to) => {
     let query = supabase
       .from("students")
       .select(
-        `id, full_name, is_active,
+        `id, full_name, is_active, needs_followup, followup_set_at,
          enrollments (
            program:program_id (id, name, sort_order),
            level:level_id (id, number, name, program_id)
@@ -143,6 +144,8 @@ export async function getStudents(
   return rows.map((row) => ({
     id: row.id as string,
     full_name: row.full_name as string,
+    needs_followup: Boolean(row.needs_followup),
+    followup_set_at: (row.followup_set_at as string | null) ?? null,
     is_active: row.is_active as boolean,
     enrollments: ((row.enrollments ?? []) as Record<string, unknown>[])
       .map((entry) => ({
@@ -240,7 +243,10 @@ export async function getSessions(): Promise<SessionSummary[]> {
     program_id: row.program_id as string,
     series_name: one<{ name: string }>(row.series as never)?.name ?? null,
     topics_covered: ((row.session_topics ?? []) as Record<string, unknown>[])
-      .map((entry) => one<{ id: string; name: string }>(entry.topic as never)?.name)
+      .map(
+        (entry) =>
+          one<{ id: string; name: string }>(entry.topic as never)?.name,
+      )
       .filter((name): name is string => Boolean(name))
       .sort(),
   }));
@@ -436,7 +442,8 @@ export type MergeGroup = {
   students: MergeCandidate[];
 };
 
-const normalise = (name: string) => name.trim().toLowerCase().replace(/\s+/g, " ");
+const normalise = (name: string) =>
+  name.trim().toLowerCase().replace(/\s+/g, " ");
 
 /**
  * Could these two names be the same child?
@@ -501,7 +508,11 @@ export async function getMergeCandidates(): Promise<MergeGroup[]> {
       const seed = remaining.shift()!;
       const group = [seed];
       for (let i = remaining.length - 1; i >= 0; i -= 1) {
-        if (group.every((member) => namesCouldMatch(member.full_name, remaining[i].full_name))) {
+        if (
+          group.every((member) =>
+            namesCouldMatch(member.full_name, remaining[i].full_name),
+          )
+        ) {
           group.push(remaining.splice(i, 1)[0]);
         }
       }
@@ -515,7 +526,10 @@ export async function getMergeCandidates(): Promise<MergeGroup[]> {
 
   const [dismissals, attendance, progress] = await Promise.all([
     fetchAll<{ student_a: string; student_b: string }>((from, to) =>
-      supabase.from("merge_dismissals").select("student_a, student_b").range(from, to),
+      supabase
+        .from("merge_dismissals")
+        .select("student_a, student_b")
+        .range(from, to),
     ),
     Promise.all(
       chunk(candidateIds, 80).map((ids) =>
@@ -531,7 +545,11 @@ export async function getMergeCandidates(): Promise<MergeGroup[]> {
     Promise.all(
       chunk(candidateIds, 80).map((ids) =>
         fetchAll<{ student_id: string; status: Status }>((from, to) =>
-          supabase.from("progress").select("student_id, status").in("student_id", ids).range(from, to),
+          supabase
+            .from("progress")
+            .select("student_id, status")
+            .in("student_id", ids)
+            .range(from, to),
         ),
       ),
     ).then((batches) => batches.flat()),
@@ -545,7 +563,9 @@ export async function getMergeCandidates(): Promise<MergeGroup[]> {
 
   const dates = new Map<string, string[]>();
   for (const row of attendance) {
-    const date = one<{ session_date: string }>(row.session as never)?.session_date;
+    const date = one<{ session_date: string }>(
+      row.session as never,
+    )?.session_date;
     if (!date) continue;
     const id = row.student_id as string;
     if (!dates.has(id)) dates.set(id, []);
@@ -554,7 +574,8 @@ export async function getMergeCandidates(): Promise<MergeGroup[]> {
 
   const marks = new Map<string, { complete: number; marks: number }>();
   for (const row of progress) {
-    if (!marks.has(row.student_id)) marks.set(row.student_id, { complete: 0, marks: 0 });
+    if (!marks.has(row.student_id))
+      marks.set(row.student_id, { complete: 0, marks: 0 });
     const entry = marks.get(row.student_id)!;
     if (row.status !== "not_seen") entry.marks += 1;
     if (row.status === "complete") entry.complete += 1;
@@ -578,25 +599,31 @@ export async function getMergeCandidates(): Promise<MergeGroup[]> {
     };
   };
 
-  return groups
-    // A group where every pair has been dismissed is done with.
-    .filter((group) =>
-      group.some((a, i) =>
-        group.some((b, j) => i < j && !isDismissed(a.id, b.id)),
-      ),
-    )
-    .map((group) => ({
-      // The fullest name is the best guess at the real one, and the coach can
-      // edit it anyway.
-      suggestedName: [...group]
-        .sort((a, b) => b.full_name.length - a.full_name.length)[0].full_name,
-      students: group
-        .map(describe)
-        .sort((a, b) => b.marks - a.marks || a.full_name.localeCompare(b.full_name)),
-    }))
-    .sort(
-      (a, b) =>
-        b.students.length - a.students.length ||
-        a.suggestedName.localeCompare(b.suggestedName),
-    );
+  return (
+    groups
+      // A group where every pair has been dismissed is done with.
+      .filter((group) =>
+        group.some((a, i) =>
+          group.some((b, j) => i < j && !isDismissed(a.id, b.id)),
+        ),
+      )
+      .map((group) => ({
+        // The fullest name is the best guess at the real one, and the coach can
+        // edit it anyway.
+        suggestedName: [...group].sort(
+          (a, b) => b.full_name.length - a.full_name.length,
+        )[0].full_name,
+        students: group
+          .map(describe)
+          .sort(
+            (a, b) =>
+              b.marks - a.marks || a.full_name.localeCompare(b.full_name),
+          ),
+      }))
+      .sort(
+        (a, b) =>
+          b.students.length - a.students.length ||
+          a.suggestedName.localeCompare(b.suggestedName),
+      )
+  );
 }

@@ -99,22 +99,14 @@ type TopicProgress = {
 };
 
 /**
- * The suggested lesson: the first topic in the level's own order that is not
- * checked off. Deliberately a plain rule, not a ranking -- a coach can predict
- * what it will say, which is what makes it trustworthy mid-lesson.
+ * Topics waiting on a test, in the curriculum's own order.
  *
- * Returns null when the whole level is complete: that student is ready to move
- * up, which is a coach's judgement call and not something the app decides.
+ * `sort_order` is a display order, not a teaching sequence. The centre does not
+ * teach a level front to back -- what gets taught depends on who is in the room
+ * that evening, and it is the coach's call. An earlier version of this file
+ * suggested "the first topic not yet complete" as each student's next lesson;
+ * it was inventing a sequence that does not exist, so it is gone.
  */
-export function suggestNextTopic(rows: TopicProgress[]) {
-  return (
-    rows
-      .filter((row) => row.status !== "complete")
-      .sort((a, b) => a.topic.sort_order - b.topic.sort_order)[0]?.topic ?? null
-  );
-}
-
-/** Topics waiting on a test, in level order. Drives the "to test" nudges. */
 export function awaitingTest(rows: TopicProgress[]) {
   return rows
     .filter((row) => row.status === "needs_testing")

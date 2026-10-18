@@ -18,13 +18,19 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 
 const env = Object.fromEntries(
-  fs.readFileSync(".env.local", "utf8")
+  fs
+    .readFileSync(".env.local", "utf8")
     .split(/\r?\n/)
     .filter((l) => l.includes("=") && !l.trim().startsWith("#"))
-    .map((l) => [l.slice(0, l.indexOf("=")).trim(), l.slice(l.indexOf("=") + 1).trim()]),
+    .map((l) => [
+      l.slice(0, l.indexOf("=")).trim(),
+      l.slice(l.indexOf("=") + 1).trim(),
+    ]),
 );
 
-const missing = ["REAL_SUPABASE_URL", "REAL_SUPABASE_PUBLISHABLE_KEY"].filter((k) => !env[k]);
+const missing = ["REAL_SUPABASE_URL", "REAL_SUPABASE_PUBLISHABLE_KEY"].filter(
+  (k) => !env[k],
+);
 if (missing.length) {
   console.error(`.env.local is missing ${missing.join(" and ")}.`);
   process.exit(1);

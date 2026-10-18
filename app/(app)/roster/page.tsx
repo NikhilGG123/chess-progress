@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { AddStudentForm } from "@/components/add-student-form";
-import { RosterList } from "@/components/roster-list";
+import { AddStudentForm } from "@/components/students/add-student-form";
+import { RosterList } from "@/components/students/roster-list";
 import { getLevels, getPrograms, getStudents } from "@/lib/queries";
 
 // Deliberately no progress summary here. It would mean pulling every progress

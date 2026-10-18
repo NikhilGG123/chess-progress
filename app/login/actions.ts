@@ -6,6 +6,10 @@ import { createClient } from "@/utils/supabase/server";
 
 export type LoginState = { error: string | null };
 
+/**
+ * Email and password sign-in. Accounts are made by hand in the Supabase
+ * console -- public sign-up is disabled -- so there is no register path.
+ */
 export async function login(
   _prevState: LoginState,
   formData: FormData,
@@ -30,6 +34,7 @@ export async function login(
   redirect("/");
 }
 
+/** Ends the session and drops every cached signed-in page with it. */
 export async function logout() {
   const supabase = await createClient();
   await supabase.auth.signOut();

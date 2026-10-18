@@ -3,6 +3,12 @@
  * Keeps every active repeating class generated some weeks ahead.
  *
  *   node scripts/top-up-classes.mjs [weeks]
+ *   node scripts/top-up-classes.mjs [weeks] --live
+ *
+ * --live reads REAL_SUPABASE_DB_* and tops up the centre's own calendar, which
+ * is the one that matters: theirs is generated to a fixed horizon and simply
+ * stops having classes after it. Same deliberate separation as backup.mjs --
+ * which database you touch is decided by what you type.
  *
  * The centre's classes run indefinitely. Sessions are materialised rather than
  * computed -- so that cancelling one week actually cancels it -- which means
@@ -16,7 +22,11 @@
 import fs from "node:fs";
 import pg from "pg";
 
-const WEEKS = Number(process.argv[2] ?? 8);
+import { projectOf } from "./project-of.mjs";
+
+const args = process.argv.slice(2);
+const live = args.includes("--live");
+const WEEKS = Number(args.find((arg) => !arg.startsWith("--")) ?? 8);
 
 const env = {};
 for (const line of fs.readFileSync(".env.local", "utf8").split(/\r?\n/)) {
@@ -24,18 +34,21 @@ for (const line of fs.readFileSync(".env.local", "utf8").split(/\r?\n/)) {
   if (match) env[match[1]] = match[2].trim().replace(/^["']|["']$/g, "");
 }
 
-if (!env.SUPABASE_DB_URL || !env.SUPABASE_DB_PASSWORD) {
-  console.error("SUPABASE_DB_URL and SUPABASE_DB_PASSWORD must be set in .env.local");
+const prefix = live ? "REAL_SUPABASE_DB_" : "SUPABASE_DB_";
+if (!env[`${prefix}URL`] || !env[`${prefix}PASSWORD`]) {
+  console.error(`${prefix}URL and ${prefix}PASSWORD must be set in .env.local`);
   process.exit(1);
 }
 
-const url = new URL(env.SUPABASE_DB_URL);
+const url = new URL(env[`${prefix}URL`]);
+console.log(`${live ? "LIVE" : "demo"} project ${projectOf(url)}`);
+
 const client = new pg.Client({
   host: url.hostname,
   port: Number(url.port || 5432),
   user: decodeURIComponent(url.username),
   database: url.pathname.replace(/^\//, "") || "postgres",
-  password: env.SUPABASE_DB_PASSWORD,
+  password: env[`${prefix}PASSWORD`],
   ssl: { rejectUnauthorized: false },
   connectionTimeoutMillis: 20000,
 });

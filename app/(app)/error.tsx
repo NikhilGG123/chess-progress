@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { buttonClass } from "@/components/ui/button";
 
 /**
  * What a coach sees when something genuinely failed.
@@ -39,8 +40,7 @@ export default function AppError({
         <button
           type="button"
           onClick={reset}
-          className="mt-4 h-10 cursor-pointer rounded-md bg-primary px-4 text-sm font-medium
-                     text-primary-foreground transition-opacity duration-200 hover:opacity-90"
+          className={buttonClass("primary", "md", "mt-4")}
         >
           Try again
         </button>

@@ -15,14 +15,20 @@ const BASE = process.env.BASE_URL ?? "http://127.0.0.1:3100";
 
 // --- credentials, read from disk, never logged ------------------------------
 const env = Object.fromEntries(
-  fs.readFileSync(".env.local", "utf8")
+  fs
+    .readFileSync(".env.local", "utf8")
     .split(/\r?\n/)
     .filter((l) => l.includes("=") && !l.trim().startsWith("#"))
-    .map((l) => [l.slice(0, l.indexOf("=")).trim(), l.slice(l.indexOf("=") + 1).trim()]),
+    .map((l) => [
+      l.slice(0, l.indexOf("=")).trim(),
+      l.slice(l.indexOf("=") + 1).trim(),
+    ]),
 );
 
 function credential(role) {
-  for (const line of fs.readFileSync("coach-credentials.txt", "utf8").split(/\r?\n/)) {
+  for (const line of fs
+    .readFileSync("coach-credentials.txt", "utf8")
+    .split(/\r?\n/)) {
     const m = line.match(/^(\S+)\s+(\S+@\S+)\s+(\S+)\s+\[(\w+)\]/);
     if (m && (m[1].toLowerCase() === role || m[4] === role)) {
       return { email: m[2], password: m[3] };
@@ -34,19 +40,26 @@ function credential(role) {
 // --- sign in, and keep whatever cookies the SSR client wants to set ---------
 async function cookiesFor(role) {
   const jar = new Map();
-  const supabase = createServerClient(env.REAL_SUPABASE_URL, env.REAL_SUPABASE_PUBLISHABLE_KEY, {
-    cookies: {
-      getAll: () => [...jar].map(([name, value]) => ({ name, value })),
-      setAll: (list) => list.forEach(({ name, value }) => jar.set(name, value)),
+  const supabase = createServerClient(
+    env.REAL_SUPABASE_URL,
+    env.REAL_SUPABASE_PUBLISHABLE_KEY,
+    {
+      cookies: {
+        getAll: () => [...jar].map(([name, value]) => ({ name, value })),
+        setAll: (list) =>
+          list.forEach(({ name, value }) => jar.set(name, value)),
+      },
     },
-  });
+  );
 
   const { email, password } = credential(role);
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw new Error(`${role} could not sign in: ${error.message}`);
 
   return {
-    cookie: [...jar].map(([n, v]) => `${n}=${encodeURIComponent(v)}`).join("; "),
+    cookie: [...jar]
+      .map(([n, v]) => `${n}=${encodeURIComponent(v)}`)
+      .join("; "),
     supabase,
   };
 }
@@ -68,24 +81,86 @@ async function page(label, path, cookie, checks = []) {
   const ms = Date.now() - started;
 
   const problems = [];
-  if (res.status !== 200) problems.push(`HTTP ${res.status}${res.headers.get("location") ? ` -> ${res.headers.get("location")}` : ""}`);
+  if (res.status !== 200)
+    problems.push(
+      `HTTP ${res.status}${res.headers.get("location") ? ` -> ${res.headers.get("location")}` : ""}`,
+    );
   // Next renders an error boundary rather than a 500 for a thrown server component.
-  if (/Application error|Internal Server Error|digest&quot;/.test(body)) problems.push("error boundary rendered");
-  for (const [what, re] of checks) if (!re.test(body)) problems.push(`missing ${what}`);
+  if (/Application error|Internal Server Error|digest&quot;/.test(body))
+    problems.push("error boundary rendered");
+  for (const [what, re] of checks)
+    if (!re.test(body)) problems.push(`missing ${what}`);
 
   if (problems.length) {
     failures++;
     console.log(`FAIL  ${label.padEnd(34)} ${problems.join("; ")}`);
   } else {
-    console.log(`ok    ${label.padEnd(34)} ${String(ms).padStart(5)} ms  ${(body.length / 1024).toFixed(0)} KB`);
+    console.log(
+      `ok    ${label.padEnd(34)} ${String(ms).padStart(5)} ms  ${(body.length / 1024).toFixed(0)} KB`,
+    );
   }
   return body;
+}
+
+/**
+ * The assets the browser will actually ask for.
+ *
+ * Checking that HTML comes back is not the same as checking the page works. A
+ * server left running across a rebuild serves HTML referencing chunk filenames
+ * that no longer exist: 200 to curl, blank screen in a browser. That happened,
+ * and this walk reported it as healthy.
+ */
+async function assets(label, path, cookie) {
+  const body = await (await fetch(BASE + path, { headers: { cookie } })).text();
+  const referenced = [
+    ...new Set(
+      [...body.matchAll(/(\/_next\/static\/[^"']+?\.(?:js|css))/g)].map(
+        (m) => m[1],
+      ),
+    ),
+  ];
+
+  const missing = [];
+  for (const asset of referenced) {
+    const res = await fetch(BASE + asset, { method: "HEAD" });
+    if (!res.ok) missing.push(`${asset} -> ${res.status}`);
+  }
+
+  if (missing.length) {
+    failures++;
+    console.log(
+      `FAIL  ${label.padEnd(34)} ${missing.length}/${referenced.length} missing: ${missing[0]}`,
+    );
+  } else {
+    console.log(
+      `ok    ${label.padEnd(34)} ${referenced.length} assets all 200`,
+    );
+  }
 }
 
 const { cookie: coach, supabase } = await cookiesFor("coach");
 const { cookie: admin } = await cookiesFor("admin");
 
 console.log(`\nAgainst ${BASE} -- the centre's real data\n`);
+
+/**
+ * The check that matters more than any other here.
+ *
+ * NEXT_PUBLIC_DEMO_MODE puts working credentials on the login page. That is
+ * correct for the demo, whose students are invented, and catastrophic for this
+ * one: it would publish a way into 645 real children's records to anyone who
+ * loaded the page. It is one environment variable, set on the wrong project.
+ */
+const loginPage = await (await fetch(BASE + "/login")).text();
+const leaks = ["@example.com", "Demonstration", "ChessCoach"].filter((s) =>
+  loginPage.includes(s),
+);
+console.log(
+  leaks.length === 0
+    ? "ok    login page gives nothing away"
+    : (failures++,
+      `FAIL  LOGIN PAGE IS IN DEMO MODE -- it shows ${leaks.join(", ")}`),
+);
 
 // Signed out, everything redirects to the login page.
 const out = await fetch(BASE + "/roster", { redirect: "manual" });
@@ -95,8 +170,13 @@ console.log(
     : (failures++, `FAIL  signed out reached /roster (HTTP ${out.status})`),
 );
 
+await assets("login assets", "/login", "");
+await assets("signed-in assets", "/", coach);
+
 await page("today", "/", coach);
-await page("roster", "/roster", coach, [["a student name", /<a [^>]*href="\/students\//]]);
+await page("roster", "/roster", coach, [
+  ["a student name", /<a [^>]*href="\/students\//],
+]);
 await page("sessions", "/sessions", coach);
 await page("curriculum", "/curriculum", coach);
 await page("merge (tidy up)", "/roster/merge", coach);
@@ -106,14 +186,35 @@ await page("admin (as admin)", "/admin", admin);
 // several students rather than the first one alphabetically, who may well be a
 // page nobody ever marked.
 const rosterBody = await page("roster again", "/roster", coach);
-const studentIds = [...new Set([...rosterBody.matchAll(/href="\/students\/([0-9a-f-]{36})"/g)].map((m) => m[1]))];
-console.log(`      ${studentIds.length} students linked from the roster`);
+const studentIds = [
+  ...new Set(
+    [...rosterBody.matchAll(/href="\/students\/([0-9a-f-]{36})"/g)].map(
+      (m) => m[1],
+    ),
+  ),
+];
+// The roster renders its first page only -- 645 rows of forms and selects was
+// 1.3MB. What matters here is that it linked somebody, not how many.
+console.log(
+  `      ${studentIds.length} students linked on the roster's first page`,
+);
+if (studentIds.length === 0) {
+  failures++;
+  console.log("FAIL  the roster linked no students at all");
+}
 
 const seen = new Map();
 let sampled = 0;
-for (const id of [0, 1, 40, 200, 400, 600].map((i) => studentIds[i]).filter(Boolean)) {
-  const body = await page(`student ${++sampled} of 6`, `/students/${id}`, coach);
-  for (const [, label] of body.matchAll(/aria-label="[^"]*?: (None|Seen once|Seen again|Test|Complete)\. Change\."/g)) {
+const spread = [0, 1, 12, 25, 40, 59].map((i) => studentIds[i]).filter(Boolean);
+for (const id of spread) {
+  const body = await page(
+    `student ${++sampled} of ${spread.length}`,
+    `/students/${id}`,
+    coach,
+  );
+  for (const [, label] of body.matchAll(
+    /aria-label="[^"]*?: (None|Seen once|Seen again|Test|Complete)\. Change\."/g,
+  )) {
     seen.set(label, (seen.get(label) ?? 0) + 1);
   }
 }
@@ -121,13 +222,20 @@ if (seen.size === 0) {
   failures++;
   console.log("FAIL  no markable cells rendered on any sampled student");
 } else {
-  console.log(`      marks rendered: ${[...seen].map(([l, n]) => `${l} ${n}`).join(", ")}`);
+  console.log(
+    `      marks rendered: ${[...seen].map(([l, n]) => `${l} ${n}`).join(", ")}`,
+  );
 }
 
 const sessionsBody = await page("sessions again", "/sessions", coach);
-const upcomingId = (sessionsBody.match(/href="\/sessions\/([0-9a-f-]{36})"/) ?? [])[1];
-if (upcomingId) await page("a class not yet taught", `/sessions/${upcomingId}`, coach);
-else { failures++; console.log("FAIL  no class link on the sessions page"); }
+const upcomingId = (sessionsBody.match(/href="\/sessions\/([0-9a-f-]{36})"/) ??
+  [])[1];
+if (upcomingId)
+  await page("a class not yet taught", `/sessions/${upcomingId}`, coach);
+else {
+  failures++;
+  console.log("FAIL  no class link on the sessions page");
+}
 
 // The grid only has anything in it once somebody is checked in, and the first
 // class on the page is the next one, which nobody has attended yet. Find a
@@ -142,22 +250,37 @@ if (!attended?.length) {
   failures++;
   console.log("FAIL  the coach can see no attendance at all");
 } else {
-  const body = await page("a class that happened", `/sessions/${attended[0].session_id}`, coach);
-  const cells = [...body.matchAll(/aria-label="[^"]*?: (None|Seen once|Seen again|Test|Complete)\. Change\."/g)].length;
+  const body = await page(
+    "a class that happened",
+    `/sessions/${attended[0].session_id}`,
+    coach,
+  );
+  const cells = [
+    ...body.matchAll(
+      /aria-label="[^"]*?: (None|Seen once|Seen again|Test|Complete)\. Change\."/g,
+    ),
+  ].length;
   const checkedIn = (body.match(/Remove|checked in/gi) ?? []).length;
-  if (cells === 0) { failures++; console.log("FAIL  a class with attendance rendered an empty grid"); }
-  else console.log(`      ${cells} markable cells, ${checkedIn} check-in controls`);
+  if (cells === 0) {
+    failures++;
+    console.log("FAIL  a class with attendance rendered an empty grid");
+  } else
+    console.log(
+      `      ${cells} markable cells, ${checkedIn} check-in controls`,
+    );
 }
 
 // A coach must not be able to reach the admin page.
-const denied = await fetch(BASE + "/admin", { headers: { cookie: coach }, redirect: "manual" });
+const denied = await fetch(BASE + "/admin", {
+  headers: { cookie: coach },
+  redirect: "manual",
+});
 const deniedBody = denied.status === 200 ? await denied.text() : "";
 console.log(
   denied.status !== 200 || /not|admin only|permission/i.test(deniedBody)
     ? `ok    coach at /admin        ${denied.status === 200 ? "shown nothing to press" : `HTTP ${denied.status}`}`
     : (failures++, "FAIL  coach sees the admin page in full"),
 );
-
 
 // --- and does a write actually go through? ----------------------------------
 //
@@ -170,7 +293,9 @@ console.log(
 // record, and it renders as a plain form -- the no-JavaScript path -- so it is
 // what this fires.
 {
-  const html = await (await fetch(BASE + "/roster", { headers: { cookie: coach } })).text();
+  const html = await (
+    await fetch(BASE + "/roster", { headers: { cookie: coach } })
+  ).text();
   const actionId = (html.match(/name="\$ACTION_ID_([0-9a-f]+)"/) ?? [])[1];
 
   if (!actionId) {
@@ -186,11 +311,16 @@ console.log(
       redirect: "manual",
     });
     const text = await res.text();
-    const cleared = (res.headers.getSetCookie?.() ?? []).some((c) => /sb-.*auth-token/.test(c));
-    const wentToLogin = /\/login/.test(text) || /\/login/.test(res.headers.get("location") ?? "");
+    const cleared = (res.headers.getSetCookie?.() ?? []).some((c) =>
+      /sb-.*auth-token/.test(c),
+    );
+    const wentToLogin =
+      /\/login/.test(text) || /\/login/.test(res.headers.get("location") ?? "");
 
     if (res.status < 400 && cleared && wentToLogin) {
-      console.log(`ok    a server action ran            HTTP ${res.status}, signed out`);
+      console.log(
+        `ok    a server action ran            HTTP ${res.status}, signed out`,
+      );
     } else {
       failures++;
       console.log(`FAIL  server action did not run     HTTP ${res.status}`);
@@ -198,5 +328,7 @@ console.log(
   }
 }
 
-console.log(failures === 0 ? "\nEverything renders.\n" : `\n${failures} problem(s).\n`);
+console.log(
+  failures === 0 ? "\nEverything renders.\n" : `\n${failures} problem(s).\n`,
+);
 process.exit(failures ? 1 : 0);

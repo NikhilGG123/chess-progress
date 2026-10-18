@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { RecentClasses } from "@/components/session-log";
-import { TodayCard } from "@/components/today-card";
-import { todayIso } from "@/lib/format";
+import { RecentClasses } from "@/components/sessions/session-log";
+import { TodayCard } from "@/components/sessions/today-card";
+import { minutesNowIso, todayIso } from "@/lib/format";
 import { currentCoach, getPrograms, getSessions } from "@/lib/queries";
 import { createClient } from "@/utils/supabase/server";
 
+/** Two head-only count queries: no rows travel, so neither hits the row cap. */
 async function counts() {
   const supabase = await createClient();
 
@@ -30,6 +31,11 @@ async function counts() {
   };
 }
 
+/**
+ * The home page, built around one question: which class am I about to teach?
+ * Today's classes come first, then the recent ones a coach may need to finish
+ * writing up.
+ */
 export default async function TodayPage() {
   const [{ coach }, sessions, stats, programs] = await Promise.all([
     currentCoach(),
@@ -49,30 +55,23 @@ export default async function TodayPage() {
 
       <TodayCard sessions={sessions} programs={programs} />
 
-      <section className="mt-8 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-lg border border-border bg-surface-raised p-5">
-          <p className="text-sm text-muted-foreground">Active students</p>
-          <p className="tabular mt-1 text-3xl font-semibold">
+      {/* One quiet line, not two large cards. "Topics awaiting a test: 632"
+          is a roster-wide total nobody acts on, and between them the two cards
+          pushed the classes below the fold for no return. Both numbers stay --
+          they are just no longer the biggest thing on the page. */}
+      <p className="mt-4 mb-8 text-sm text-muted-foreground">
+        <Link href="/roster" className="hover:underline">
+          <span className="tabular font-medium text-foreground">
             {stats.activeStudents}
-          </p>
-          <Link
-            href="/roster"
-            className="mt-3 inline-block text-sm hover:underline"
-          >
-            Manage roster →
-          </Link>
-        </div>
-
-        <div className="rounded-lg border border-border bg-surface-raised p-5">
-          <p className="text-sm text-muted-foreground">Topics awaiting a test</p>
-          <p className="tabular mt-1 text-3xl font-semibold">
-            {stats.awaitingTest}
-          </p>
-          <p className="mt-3 text-sm text-muted-foreground">
-            Across every active student.
-          </p>
-        </div>
-      </section>
+          </span>{" "}
+          active students
+        </Link>
+        {" · "}
+        <span className="tabular font-medium text-foreground">
+          {stats.awaitingTest}
+        </span>{" "}
+        topics waiting on a test
+      </p>
 
       <section className="mt-8">
         <div className="mb-3 flex items-baseline justify-between gap-4">
@@ -82,7 +81,11 @@ export default async function TodayPage() {
           </Link>
         </div>
 
-        <RecentClasses sessions={sessions} serverToday={todayIso()} />
+        <RecentClasses
+          sessions={sessions}
+          serverToday={todayIso()}
+          serverMinutes={minutesNowIso()}
+        />
       </section>
     </main>
   );

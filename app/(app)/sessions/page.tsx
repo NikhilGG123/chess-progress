@@ -1,12 +1,23 @@
-import { ClassSeriesForm } from "@/components/class-series-form";
-import { ConfirmButton } from "@/components/confirm-button";
-import { NewSessionForm } from "@/components/new-session-form";
-import { SessionLog } from "@/components/session-log";
-import { formatSessionDate, formatSessionTime, todayIso } from "@/lib/format";
+import { ClassSeriesForm } from "@/components/sessions/class-series-form";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
+import { ConfirmButton } from "@/components/ui/confirm-button";
+import { Button } from "@/components/ui/button";
+import { NewSessionForm } from "@/components/sessions/new-session-form";
+import { SessionLog } from "@/components/sessions/session-log";
+import {
+  formatSessionDate,
+  formatSessionTime,
+  minutesNowIso,
+  todayIso,
+} from "@/lib/format";
 import { getClassSeries, getPrograms, getSessions } from "@/lib/queries";
 import { weekdayLabel } from "@/lib/weekdays";
 import { extendSeries, stopSeries } from "./actions";
 
+/**
+ * The calendar: the repeating timetable, a form for one-off classes, and the
+ * log of every session, upcoming first.
+ */
 export default async function SessionsPage() {
   const [sessions, series, programs] = await Promise.all([
     getSessions(),
@@ -24,12 +35,19 @@ export default async function SessionsPage() {
     <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8">
       <h1 className="text-2xl font-semibold tracking-tight">Sessions</h1>
       <p className="mt-1 mb-6 text-sm text-muted-foreground">
-        What is coming up, then everything already taught. Opening one takes
-        you to its attendance list and grid.
+        What is coming up, then everything already taught. Opening one takes you
+        to its attendance list and grid.
       </p>
 
-      <section className="mb-8">
-        <h2 className="mb-1 text-sm font-medium">Repeating classes</h2>
+      {/* Folded away by default. The timetable is set once and then rarely
+          touched, but it is fourteen rows of buttons sitting above the log
+          every single time. */}
+      <CollapsibleSection
+        id="series"
+        title="Repeating classes"
+        count={activeSeries.length}
+        summary="the timetable"
+      >
         <p className="mb-4 text-sm text-muted-foreground">
           Describe the timetable once and the classes appear on the calendar.
           They are ordinary sessions once created — delete one you are not
@@ -59,25 +77,19 @@ export default async function SessionsPage() {
                 <form action={extendSeries}>
                   <input type="hidden" name="series_id" value={entry.id} />
                   <input type="hidden" name="weeks" value="8" />
-                  <button
-                    type="submit"
-                    className="h-9 cursor-pointer rounded-md border border-border-strong px-3
-                               text-sm transition-colors duration-200 hover:bg-muted"
-                  >
+                  <Button type="submit" size="sm">
                     Extend 8 weeks
-                  </button>
+                  </Button>
                 </form>
 
                 <ConfirmButton
+                  size="sm"
                   action={stopSeries}
                   fields={{ series_id: entry.id }}
                   confirm={`Stop “${entry.name}”?
 
 Its ${entry.upcoming} upcoming class${entry.upcoming === 1 ? "" : "es"} will be removed from the calendar.
 Classes that already have students checked in are kept.`}
-                  className="h-9 cursor-pointer rounded-md border border-border px-3 text-sm
-                             text-muted-foreground transition-colors duration-200
-                             hover:border-destructive hover:text-destructive"
                 >
                   Stop
                 </ConfirmButton>
@@ -96,7 +108,7 @@ Classes that already have students checked in are kept.`}
             <ClassSeriesForm programs={programs} />
           </div>
         </details>
-      </section>
+      </CollapsibleSection>
 
       <section className="mb-8 rounded-lg border border-border bg-surface-raised p-5">
         <h2 className="mb-1 text-sm font-medium">One-off session</h2>
@@ -110,7 +122,11 @@ Classes that already have students checked in are kept.`}
         />
       </section>
 
-      <SessionLog sessions={sessions} serverToday={todayIso()} />
+      <SessionLog
+        sessions={sessions}
+        serverToday={todayIso()}
+        serverMinutes={minutesNowIso()}
+      />
     </main>
   );
 }

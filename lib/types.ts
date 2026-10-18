@@ -24,6 +24,13 @@ export type Student = {
   id: string;
   full_name: string;
   is_active: boolean;
+  /**
+   * Something about this student needs looking at in Jumbula, the centre's
+   * registration and payments system. Carries no detail on purpose -- see
+   * migration 0018.
+   */
+  needs_followup: boolean;
+  followup_set_at: string | null;
 };
 
 /**

@@ -72,7 +72,9 @@ for (const needle of needles) {
   }
 }
 
-console.log(`Checked ${needles.size} names from ${rosterPath} against ${contents.size} files.`);
+console.log(
+  `Checked ${needles.size} names from ${rosterPath} against ${contents.size} files.`,
+);
 
 if (found.size === 0) {
   console.log("None of them appear. Safe to publish.");
@@ -84,5 +86,7 @@ for (const [needle, files] of found) {
   console.log(`  ${needle}`);
   for (const file of files) console.log(`      ${file}`);
 }
-console.log("\nReplace these with invented people before pushing anywhere public.");
+console.log(
+  "\nReplace these with invented people before pushing anywhere public.",
+);
 process.exit(1);
