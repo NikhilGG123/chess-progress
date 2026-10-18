@@ -2,232 +2,281 @@
 
 [![CI](https://github.com/NikhilGG123/chess-progress/actions/workflows/ci.yml/badge.svg)](https://github.com/NikhilGG123/chess-progress/actions/workflows/ci.yml)
 
-**Student progress tracking for a chess academy** — replacing the shared
-spreadsheet three coaches ran their classes from.
+**A live database and web app that replaced a chess academy's Excel workbook
+for tracking what every student has learned.**
 
-[**Try the live demo →**](https://chess-dashboard-mu.vercel.app) · credentials
-are on the sign-in page · every student in it is invented
+Coaches run a class from a phone or laptop: check students in, record what the
+lesson covered, and mark each child's progress topic by topic. Every mark is
+saved to a permanent, per-student record in PostgreSQL instead of a cell on a
+spreadsheet tab.
 
-<!-- SCREENSHOT 1: docs/screenshots/grid.png -->
+**[Live demo →](https://chess-dashboard-mu.vercel.app)** · sign in as
+`brad@example.com` / `ChessCoach2026!` · every student in the demo is invented
 
-A coach opens the evening's class, checks in who turned up, ticks what the
-lesson covered, and marks each student against the topics in their level. The
-record is permanent and belongs to the student, not to a tab in a workbook.
+![A coach's view of a class: attendance, topics covered, and the progress grid](docs/screenshots/class.png)
 
-The academy's own instance runs this same code against their real records:
-**645 students, 12,398 marks, 2,196 attendance records and 523 classes**,
-migrated out of the system they had before.
-
----
-
-## The problem
-
-Four levels of chess, sixteen to twenty-two topics each, fourteen classes a
-week across four evenings. The record of who had learned what lived in an Excel
-workbook with a tab per level — so a child who moved up got a **new row on a
-new tab**, and their old one stayed behind. After years of this, one child
-could be three separate records, filed under "Rohan", "Rohan M" and "Rohan
-Mistry", because for a long time only first names were written down.
-
-Nothing in that workbook could answer *where does this child stand?* without
-a coach reading across three tabs mid-lesson.
+| | |
+| --- | --- |
+| **Status** | Deployed for the academy, running on their real records |
+| **Data migrated** | 645 students · 12,398 progress marks · 2,196 attendance records · 523 classes |
+| **Built with** | TypeScript, Next.js 16, React 19, PostgreSQL (Supabase), Python, Tailwind CSS |
+| **Role** | Sole developer: requirements with the coaches, data model, app, data migration, deployment |
 
 ---
 
-## Running a class
+## Why it exists
 
-<!-- SCREENSHOT 2: docs/screenshots/class.png -->
+The academy teaches chess across four levels, with 12 to 22 topics per level
+and fourteen classes a week. Progress lived in a shared Excel workbook with one
+tab per level, which caused three problems:
 
-1. **Open the class.** It's already on the calendar — the timetable repeats
-   itself and generates eight weeks ahead.
-2. **Check in.** Regulars are starred, so that's one button; the search box is
-   there for drop-ins, who are common enough to matter.
-3. **Tick what the lesson covered.**
-4. **Press *Everyone here saw these*.** Every attendee moves one step on those
-   topics — blank → `I` → `R`, and **no further**.
-5. **Mark individuals by hand** where judgement applies: `T` when a student is
-   ready to be tested, `X` when they have passed.
+- **A student's history was split across tabs.** Moving up a level meant
+  starting a new row on a new tab, so one child's record ended up in several
+  places.
+- **Names drifted.** Years of first names only, then last initials, left the
+  same child filed as "Rohan", "Rohan M" and "Rohan Mistry".
+- **No history.** A cell held a student's current mark, with no record of when
+  it changed or in which class.
 
-Step 4 stopping at `R` is the important one. Attending a lesson is evidence a
-student *saw* something. It is not evidence they understood it, and no bulk
-action in this app will ever claim otherwise.
-
-### The five marks
-
-| Mark | Stored as | Means |
-| :---: | --- | --- |
-| – | `not_seen` | not covered with this student yet |
-| `I` | `seen_once` | seen once |
-| `R` | `seen_multiple` | seen several times |
-| `T` | `needs_testing` | ready to be tested |
-| `X` | `complete` | tested and finished |
-
-**`X` means complete.** Read as a cross it means the exact opposite, and this
-app shipped once with that mistake — enough to invert every student's record on
-import. It was caught by cross-checking three independent sources: the coaches,
-the workbook's own grid formula, and the 3,702 rows their old database labelled
-*Completed*. A test pins it now.
+This app replaces the workbook with a relational database: one record per
+student, every change timestamped, and a screen built around running a class.
 
 ---
 
-## The permanent record
+## Features
 
-<!-- SCREENSHOT 3: docs/screenshots/student.png -->
+### Running a class
 
-Every mark that changes is written to a history table with the class it changed
-in, by a database trigger — so the grid, the bulk advance, an import and
-somebody's ad-hoc SQL are all covered by the same guarantee.
+- **Today screen.** Opens on the classes happening today, in the coach's own
+  time zone.
+- **One-tap check-in.** Each class has starred "regulars" who can be checked in
+  together; drop-ins are found by search.
+- **Topics covered.** The coach ticks what the lesson covered, which becomes
+  part of the class log.
+- **"Everyone here saw these."** One button moves every attendee forward on the
+  covered topics. It is capped by the database so it can never mark a student
+  as tested or complete; that stays a coach's judgement.
+- **Progress grid.** One row per student, one column per topic, with a
+  five-step scale: not seen, seen once, seen several times, ready to test,
+  complete.
+- **Live between devices.** Two coaches can work the same class on two devices;
+  marks and check-ins appear on both screens in real time.
+- **Per-student notes** for each class, saved automatically as the coach types.
 
-Promoting a student touches no progress row at all, so their old level survives
-as history for free. That falls out of the schema: progress hangs off the
-**topic**, and a topic knows its own level.
+### Student records
 
----
+<p>
+  <img src="docs/screenshots/student.png" width="49%" alt="A student's progress on every topic in their level">
+  <img src="docs/screenshots/student-history.png" width="49%" alt="A student's class history, showing which marks changed in each class">
+</p>
 
-## One child, several pages
+- **Student page.** Progress at every level the student has been through, not
+  just the current one.
+- **Class history.** Every class attended, newest first, with which marks
+  changed that day.
+- **Programmes.** A student can be enrolled in several programmes (chess and
+  coding, say), each with its own level.
+- **Follow-up flag.** A single checkbox meaning "check this student in the
+  registration system". It deliberately stores no payment details.
 
-<!-- SCREENSHOT 4: docs/screenshots/merge.png -->
+### Cleaning up duplicate records
 
-The obvious move is to merge same-name records automatically. Tested against
-attendance history, that turns out to be unsafe:
+- **Duplicate review screen.** Groups records with matching names and shows the
+  evidence side by side: levels, attendance dates and progress.
+- **Merge.** A coach confirms each merge. Marks, attendance, notes and history
+  move to the surviving record first, and where both records marked the same
+  topic, the more advanced mark is kept.
 
-- **126** same-name groups sat at different levels
-- **10** attended in separate periods — consistent with one child moving up
-- **7** attended *in the same week* on two different pages
-- **109** had too little attendance to tell either way
+### Scheduling and curriculum
 
-And the 7 prove nothing, because **27 students legitimately attend two
-classes**. There is no reliable second key, and fusing two children's records
-is far worse than leaving them apart.
+- **Repeating classes.** Define a weekly class once and the sessions are
+  generated weeks ahead. A cancelled week stays cancelled.
+- **Editable curriculum.** Coaches add, rename and reorder programmes, levels
+  and topics in the app, with no code changes.
 
-So nothing is merged automatically. The app ships a review screen instead: one
-name group at a time, with levels, attendance dates and progress counts on
-screen, and a coach decides. Merging moves every mark, class, note and
-attendance record to the surviving student before anything is deleted; where
-the same topic exists on both, the mark further along wins.
+### Safety and administration
 
----
-
-## Engineering decisions worth reading
-
-**Row-level security is only half of it.** A policy decides *which rows*; a
-`GRANT` decides whether you may touch the table at all, and Postgres checks
-that first. Tables created over a direct connection inherit neither — which is
-how a signed-in coach once got `permission denied for table students`. Every
-table now carries an explicit grant block.
-
-**The API truncates at 1,000 rows in silence.** No error, no flag, just a short
-array. A class of 46 students on a 22-topic level is 1,012 progress rows, so
-the tail would have rendered blank and coaches would have watched their marks
-apparently vanish. Everything that scales with the roster now pages explicitly.
-
-**Roles are drawn around blast radius, not seniority.** Coaches can delete a
-class, because they do it routinely and making them fetch an admin password
-guarantees that password ends up on a sticky note. Deleting a *topic* cascades
-into every student's record, so it waits behind an account nobody is signed
-into by default. Deletes state what will be lost — "3 students checked in, 2
-notes" — rather than asking "are you sure?", which is answered yes by reflex.
-
-**Database tests run inside a transaction and roll back**, which is why they
-can be pointed at the production database. Every bug that ever reached a page
-in this project lived in that layer: a policy without a grant, a trigger that
-had to fire, a realtime socket that reported `SUBSCRIBED` and then delivered
-nothing because it carried the wrong token. None of it is visible to a type
-checker.
-
-**No real student data has ever been in this repository** — and
-`scripts/check-names.mjs` tests that rather than trusting it, checking every
-name on the academy's enrolment list against every tracked file. It found three
-that had crept into code comments as examples.
+- **Two roles.** Coaches do everything needed day to day. Deleting a topic,
+  level or student needs a separate Admin account, because those deletes
+  cascade into every affected student's record.
+- **Clear delete warnings.** Instead of "Are you sure?", a delete states what
+  will be lost ("3 students checked in, 2 notes").
+- **Recoverable deletes.** Every deleted row is copied to an archive table by
+  the database first, with who deleted it and when.
+- **Backups.** One-click download of the whole database from the Admin page,
+  plus a script to snapshot and restore it.
+- **Dark mode**, and layouts that work on a phone in the classroom.
 
 ---
 
-## Stack
+## Architecture
 
-**TypeScript · Next.js 16** (App Router, server components, server actions) **·
-React 19 · PostgreSQL** via **Supabase** (auth, row-level security, realtime)
-**· Python** (workbook parser) **· Tailwind CSS v4 · Vitest**
+```mermaid
+flowchart LR
+    C["Coach<br/>phone or laptop"] -->|HTTPS| A["Next.js 16<br/>server components<br/>server actions"]
+    A -->|"queries as the signed-in coach"| D[("PostgreSQL<br/>Supabase")]
+    C <-->|"realtime updates<br/>(WebSocket)"| D
+    D --- R["Row-level security<br/>triggers · SQL functions"]
+```
 
-Deployed on **Vercel** (this demo) and **Cloudflare Workers** via OpenNext (the
-academy's instance — Vercel's free tier excludes commercial use). A nightly
-**GitHub Action** takes a backup and keeps the class calendar generated eight
-weeks ahead.
+- **Server-rendered pages, server actions for writes.** The browser holds only
+  a publishable key; every query runs with the coach's own session, so
+  database access rules apply to everything.
+- **Business rules live in the database.** Progress history, the archive of
+  deleted rows, the cap on the bulk advance and the merge are triggers and SQL
+  functions. They apply however the data is changed: through the app, an import
+  or a manual SQL query.
+- **Two deployments of one codebase.** The public demo runs on Vercel with
+  generated data. The academy's instance runs on Cloudflare Workers against its
+  own database.
 
-Schema, policies and functions are eighteen plain SQL migrations in
-`supabase/migrations/`, applied by hand and in order.
+### Data model
+
+```mermaid
+erDiagram
+    programs ||--o{ levels : has
+    levels ||--o{ topics : has
+    students ||--o{ enrollments : "enrolled in"
+    programs ||--o{ enrollments : ""
+    students ||--o{ progress : ""
+    topics ||--o{ progress : ""
+    students ||--o{ progress_events : "history"
+    class_series ||--o{ sessions : generates
+    sessions ||--o{ attendance : ""
+    students ||--o{ attendance : ""
+    sessions ||--o{ session_topics : covers
+    sessions ||--o{ session_notes : ""
+```
+
+The key decision: **progress belongs to a topic, not to a level.** A student
+has one row per topic, and the topic knows its level. Promoting a student
+therefore changes no progress rows, and their earlier levels remain as history
+automatically.
 
 ---
 
-## Running it
+## Engineering highlights
+
+- **Security in two layers.** Row-level security policies decide *which rows* a
+  user can touch; table `GRANT`s decide whether they can touch the table at
+  all. Both are set explicitly for every table, and the anonymous role has no
+  access to any of them.
+- **Silent row limits.** Supabase's API returns at most 1,000 rows without any
+  error. One class of 46 students on a 22-topic level is 1,012 progress rows,
+  so every query that grows with the roster pages through results explicitly
+  rather than quietly losing the tail.
+- **Realtime that respects permissions.** Live updates are re-checked against
+  each coach's access rules, so the socket is opened only after the coach's
+  session is restored. Otherwise it connects but never receives anything.
+- **Dates without time-zone bugs.** Postgres dates have no time zone, and
+  JavaScript would read them as UTC midnight, showing a class on the 3rd as the
+  2nd anywhere west of Greenwich. "Today" is calculated on the coach's device,
+  not the server.
+- **Database tests against a real Postgres.** 44 of the 65 tests run against a
+  live database inside a transaction that is rolled back, so they can safely be
+  pointed at production. They cover access rules and roles, the bulk-advance
+  cap, progress history, the archive of deleted rows, merging, and the
+  1,000-row limit.
+- **No real data in the repository.** A script checks every tracked file
+  against the names on the academy's roster.
+
+---
+
+## Migrating the academy's data
+
+Moving 645 students off the old system was as much a data problem as a
+software one.
+
+**Checking the meaning of the marks.** The coaches mark completion with `X`. An
+outsider reads `X` as a cross, and an early version of this app made exactly
+that mistake, which would have inverted every student's record on import. The
+meaning was confirmed from three independent sources: the coaches, the
+workbook's own formulas, and 3,702 records labelled *Completed* in the old
+database. A test now pins it.
+
+**Deciding not to merge automatically.** Many students appeared as several
+records with similar names. Before building anything, I tested whether
+attendance history could identify the true duplicates safely:
+
+| Same-name groups at different levels | 126 |
+| :--- | ---: |
+| Attended in separate periods (consistent with one child moving up) | 10 |
+| Attended in the *same* week on two records | 7 |
+| Too little attendance to tell | 109 |
+
+Even the 7 prove nothing, because 27 students legitimately attend two classes a
+week. With no reliable second key, and with merging two different children far
+worse than leaving one child split, the app gives coaches a review screen
+instead of merging automatically.
+
+**Verifying the import.** Every count was checked against the source after the
+import. Marks matched exactly by category:
+
+| Not seen | Seen once | Seen several times | Ready to test | Complete |
+| ---: | ---: | ---: | ---: | ---: |
+| 4,951 | 2,435 | 678 | 632 | 3,702 |
+
+The importer only reads from the old system, and its output is never committed.
+
+---
+
+## Running it locally
+
+Requires Node.js 20 or later and a free [Supabase](https://supabase.com)
+project.
 
 ```bash
+git clone https://github.com/NikhilGG123/chess-progress.git
+cd chess-progress
 npm install
-cp .env.example .env.local     # fill in from the Supabase dashboard
+cp .env.example .env.local     # add your Supabase URL, keys and database URL
+
+node scripts/apply-sql.mjs supabase/migrations/*.sql          # schema
+node scripts/apply-sql.mjs supabase/seed/001_placeholder_seed.sql  # demo data
+
 npm run dev                    # http://localhost:3000
 ```
 
-In a fresh Supabase project, paste `supabase/setup_all.sql` into the SQL
-editor — every migration plus the coach rows plus the demo data, joined into
-one file. Regenerate it with `bash supabase/build_setup_all.sh`.
-
-There is no public sign-up. Coach accounts are created in the Supabase console
-and given a row in `coaches`.
+There is no public sign-up: accounts are created in the Supabase dashboard and
+given a row in the `coaches` table.
 
 | Command | |
 | --- | --- |
-| `npm run dev` | development server |
-| `npm run build` | production build, including a full type check |
-| `npm test` | 65 tests — unit, plus database tests when `.env.local` has credentials |
-| `npm run lint` | ESLint |
-| `npm run typecheck` | TypeScript alone, without a build |
-| `npm run format` | Prettier; `format:check` is what CI runs |
+| `npm test` | 65 tests: unit tests, plus database tests when credentials are set |
+| `npm run build` | production build |
+| `npm run lint` · `npm run typecheck` · `npm run format` | ESLint, TypeScript, Prettier |
 | `node scripts/generate_demo_seed.mjs` | regenerate the demo data |
-| `node scripts/backup.mjs` | snapshot every table to `backups/` |
-| `node scripts/check-names.mjs` | fail if a real student's name reached a tracked file |
+| `node scripts/backup.mjs` | snapshot every table to a JSON file |
 
-The demo data simulates a twelve-week term rather than sprinkling random
-statuses, so it is internally consistent — nobody is ahead on a topic their
-class never covered. Every generated id begins `5eed0000`, which is how the
-teardown script finds it and nothing else.
+The demo data simulates a twelve-week term rather than random values, so it is
+internally consistent: no student is ahead on a topic their class never
+covered.
 
 ---
 
-## Layout
+## Project structure
 
 ```
-app/(app)/          signed-in pages; the route group carries the nav shell
-app/login/          the only page outside it
-components/         grouped by the part of the app they serve
-  sessions/         a class: check-in, the grid, notes, the calendar
-  students/         the roster, a student's record, merging duplicates
-  curriculum/       programmes, levels and topics
-  progress/         the mark picker and legend, shared by both grids
-  admin/            the backup button
-  layout/  ui/      the header shell, and generic building blocks
-hooks/              realtime, the coach's local date, remembered toggles
-lib/
-  status.ts         the five marks, and what may follow what
-  queries.ts        every read. Pages explicitly, because the API
-                    silently truncates at 1000 rows
-utils/supabase/     the three clients: browser, server, proxy
+app/                Next.js routes: pages and server actions
+components/         UI, grouped by area: sessions/, students/, curriculum/, ...
+hooks/              realtime subscription, local date, remembered toggles
+lib/                queries (paginated), the five marks, shared types
 supabase/
-  migrations/       schema, policies, grants, functions — plain SQL
-  seed/             the demo term, and its teardown
-scripts/            migrations, backups, imports, the demo generator
-tests/              unit tests, and database tests that roll back
-proxy.ts            Next.js 16's name for middleware; gates every route
+  migrations/       18 SQL migrations: schema, security, triggers, functions
+  seed/             generated demo data
+scripts/            data import, backups, demo data generator
+tests/              unit tests and rolled-back database tests
 ```
 
-`CLAUDE.md` is the long-form version of this file — the domain, the schema, the
-access model, and every trap this codebase has already fallen into.
+[CLAUDE.md](CLAUDE.md) holds the full design notes: the domain, the schema,
+the access model, and the mistakes this codebase has already made once.
 
 ---
 
-## On the data
+## What's next
 
-No real student data is in this repository or in the demo. Names, marks,
-attendance and notes in the demo are generated. The academy's records live in
-their own Supabase project; the importer reads their old system and never
-writes to it, and its output, their roster and every backup are gitignored.
-
-Built unpaid, for a chess academy that had outgrown its spreadsheet.
+- **Learning analytics.** Every change is already timestamped in
+  `progress_events`, which makes it possible to measure time-to-mastery per
+  topic and spot topics where students stall.
+- **End-to-end tests** of the class workflow in a real browser.
+- **Parent-facing progress reports**, generated from the same records.
